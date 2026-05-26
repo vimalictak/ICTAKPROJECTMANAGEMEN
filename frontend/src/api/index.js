@@ -112,7 +112,7 @@ export const searchApi = {
 
 // ─── Reports ───────────────────────────────────────────
 export const reportsApi = {
-  getSummary: (projectId) => {
+getSummary: (projectId) => {
     if (projectId && (typeof projectId === 'string' || typeof projectId === 'number')) {
       return api.get(`/reports/project/${projectId}/summary`);
     }

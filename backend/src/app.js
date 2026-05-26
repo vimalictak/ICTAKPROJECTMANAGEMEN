@@ -79,7 +79,7 @@ app.options('*', cors(corsOptions));
 
 // Rate limiting — general API limiter (skips auth routes to avoid double-limiting)
 const limiter = rateLimit({
-  windowMs: (parseInt(process.env.RATE_LIMIT_WINDOW) || 15) * 60 * 1000,
+  windowMs: (parseInt(process.env.RATE_LIMIT_WINDOW) || 1500000) * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX) || 200,
   message: {
     success: false,
@@ -92,7 +92,7 @@ const limiter = rateLimit({
 
 // Separate rate limit for auth routes only (not stacked with general limiter)
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 1500000000 * 60 * 1000,
   max: parseInt(process.env.AUTH_RATE_LIMIT_MAX) || 30,
   message: {
     success: false,

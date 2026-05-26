@@ -165,7 +165,7 @@ export const ProjectsPage = () => {
     () => projectsApi.getAll({ search, status: statusFilter }),
     [search, statusFilter]
   );
-  const projects = data?.projects || [];
+  const projects = data?.data || [];
 
   const { mutate: archiveProject } = useMutation((id) => projectsApi.archive(id), {
     onSuccess: () => { toast.success('Project archived'); refetch(); },
@@ -239,12 +239,12 @@ export const ProjectsPage = () => {
 };
 
 export const ProjectDetailPage = () => {
-  const { id } = useParams();
+  const { projectId: id } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('board');
 
   const { data, loading } = useQuery(() => projectsApi.getOne(id), [id]);
-  const project = data?.project;
+  const project = data?.data;
 
   if (loading) return <div className="p-6"><Skeleton className="h-32 w-full mb-4" /><Skeleton className="h-64 w-full" /></div>;
   if (!project) return <div className="p-6 text-center text-muted-foreground">Project not found</div>;
@@ -299,7 +299,7 @@ export const ProjectDetailPage = () => {
 
 const ProjectMembersTab = ({ project }) => {
   const { data, loading, refetch } = useQuery(() => projectsApi.getMembers(project._id), [project._id]);
-  const members = data?.members || [];
+  const members = data?.data?.members || [];
 
   const { mutate: removeMember } = useMutation((userId) => projectsApi.removeMember(project._id, userId), {
     onSuccess: () => { toast.success('Member removed'); refetch(); },

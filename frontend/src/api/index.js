@@ -112,9 +112,24 @@ export const searchApi = {
 
 // ─── Reports ───────────────────────────────────────────
 export const reportsApi = {
-  getSummary: (projectId) => api.get(`/reports/project/${projectId}/summary`),
-  getVelocity: (projectId) => api.get(`/reports/project/${projectId}/velocity`),
-  getWorkload: (projectId) => api.get(`/reports/project/${projectId}/workload`),
+getSummary: (projectId) => {
+    if (projectId && (typeof projectId === 'string' || typeof projectId === 'number')) {
+      return api.get(`/reports/project/${projectId}/summary`);
+    }
+    return api.get('/reports/dashboard');
+  },
+  getVelocity: (projectId) => {
+    if (projectId && (typeof projectId === 'string' || typeof projectId === 'number')) {
+      return api.get(`/reports/project/${projectId}/velocity`);
+    }
+    return Promise.resolve({ data: { success: true, data: [] } });
+  },
+  getWorkload: (projectId) => {
+    if (projectId && (typeof projectId === 'string' || typeof projectId === 'number')) {
+      return api.get(`/reports/project/${projectId}/workload`);
+    }
+    return Promise.resolve({ data: { success: true, data: [] } });
+  },
   getDashboard: () => api.get('/reports/dashboard'),
 };
 

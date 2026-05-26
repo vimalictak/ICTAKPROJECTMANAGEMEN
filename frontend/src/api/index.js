@@ -18,12 +18,15 @@ export const usersApi = {
   getAll: (params) => api.get('/users', { params }),
   list: (params) => api.get('/users', { params }),
   getOne: (id) => api.get(`/users/${id}`),
+
   get: (id) => api.get(`/users/${id}`),
+
   updateProfile: (data) => api.put('/users/me/profile', data),
   uploadAvatar: (...args) => {
     const formData = args.length === 2 ? args[1] : args[0];
     return api.post('/users/me/avatar', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 'Content-Type': 'multipart/form-data' },
+
     });
   },
   updateUser: (id, data) => api.put(`/users/${id}`, data),
@@ -91,6 +94,15 @@ export const sprintsApi = {
   complete: (id, data) => api.patch(`/sprints/${id}/complete`, data),
   getTasks: (id, params) => api.get(`/sprints/${id}/tasks`, { params }),
   getBurndown: async () => ({ data: { success: true, data: [] } }),
+get: (id) => api.get(`/users/${id}`),
+  updateProfile: (data) => api.put('/users/me/profile', data),
+  uploadAvatar: (formData) => api.post('/users/me/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  updateUser: (id, data) => api.put(`/users/${id}`, data),
+  update: (id, data) => api.put(`/users/${id}`, data),
+  deleteUser: (id) => api.delete(`/users/${id}`),
+  delete: (id) => api.delete(`/users/${id}`),
 };
 
 // ─── Stories ───────────────────────────────────────────
@@ -125,7 +137,8 @@ export const searchApi = {
 
 // ─── Reports ───────────────────────────────────────────
 export const reportsApi = {
-  getSummary: (projectId) => {
+getSummary: (projectId) => {
+
     if (projectId && (typeof projectId === 'string' || typeof projectId === 'number')) {
       return api.get(`/reports/project/${projectId}/summary`);
     }

@@ -38,7 +38,7 @@ const StatCard = ({ title, value, icon: Icon, trend, color, loading }) => (
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'];
 
-export const DashboardPage = () => {
+const DashboardPage = () => {
   const navigate = useNavigate();
   const user = useSelector(selectUser);
 
@@ -213,3 +213,5 @@ export const DashboardPage = () => {
     </div>
   );
 };
+
+export default DashboardPage;

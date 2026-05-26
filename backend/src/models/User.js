@@ -73,14 +73,15 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Organization',
     },
-    roles: [
-      {
-        type: String,
-        enum: ['super_admin', 'admin', 'manager', 'developer', 'qa', 'client', 'viewer'],
-        default: 'developer',
-      },
-    ],
-    customPermissions: [String], // Additional fine-grained permissions
+    roles: {
+      type: [String],
+      enum: ['super_admin', 'admin', 'manager', 'developer', 'qa', 'client', 'viewer'],
+      default: ['developer'],
+    },
+    customPermissions: {
+      type: [String],
+      default: [],
+    }, // Additional fine-grained permissions
 
     // ─── Status ──────────────────────────────────────────────────────────
     isActive: { type: Boolean, default: true },
@@ -152,11 +153,12 @@ userSchema.virtual('isLocked').get(function () {
 });
 
 userSchema.virtual('primaryRole').get(function () {
+  const roles = Array.isArray(this.roles) ? this.roles : [];
   const roleHierarchy = ['super_admin', 'admin', 'manager', 'developer', 'qa', 'client', 'viewer'];
   for (const role of roleHierarchy) {
-    if (this.roles.includes(role)) return role;
+    if (roles.includes(role)) return role;
   }
-  return this.roles[0] || 'viewer';
+  return roles[0] || 'viewer';
 });
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
@@ -215,7 +217,8 @@ userSchema.methods.createEmailVerificationToken = function () {
  * Check if user has a specific role
  */
 userSchema.methods.hasRole = function (...roles) {
-  return roles.some((role) => this.roles.includes(role));
+  const userRoles = Array.isArray(this.roles) ? this.roles : [];
+  return roles.some((role) => userRoles.includes(role));
 };
 
 /**

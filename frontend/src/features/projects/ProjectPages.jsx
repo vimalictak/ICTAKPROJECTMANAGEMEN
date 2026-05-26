@@ -103,9 +103,14 @@ const CreateProjectModal = ({ open, onClose, onCreated }) => {
   const { register, handleSubmit, formState: { errors }, reset } = useForm({ resolver: zodResolver(projectSchema) });
   const { mutate, loading } = useMutation((data) => projectsApi.create(data), {
     onSuccess: (data) => {
+      const createdProject = data?.data || data?.project || data;
+      if (!createdProject?._id) {
+        toast.error('Project created, but response was invalid.');
+        return;
+      }
       toast.success('Project created!');
       reset();
-      onCreated?.(data.project);
+      onCreated?.(createdProject);
       onClose();
     },
     onError: (err) => toast.error(err),
@@ -232,7 +237,7 @@ export const ProjectsPage = () => {
       <CreateProjectModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={(p) => navigate(`/projects/${p._id}`)}
+        onCreated={(p) => p?._id && navigate(`/projects/${p._id}`)}
       />
     </div>
   );
@@ -275,15 +280,15 @@ export const ProjectDetailPage = () => {
             </span>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate(`/projects/${id}/settings`)}>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/projects/${projectId}/settings`)}>
               <Settings className="h-4 w-4" />
             </Button>
           </div>
         </div>
         <Tabs tabs={tabs} activeTab={activeTab} onChange={(t) => {
-          if (t === 'board') navigate(`/projects/${id}/board`);
-          else if (t === 'backlog') navigate(`/projects/${id}/backlog`);
-          else if (t === 'sprints') navigate(`/sprints?project=${id}`);
+          if (t === 'board') navigate(`/projects/${projectId}/board`);
+          else if (t === 'backlog') navigate(`/projects/${projectId}/backlog`);
+          else if (t === 'sprints') navigate(`/sprints?project=${projectId}`);
           else setActiveTab(t);
         }} />
       </div>
@@ -291,7 +296,7 @@ export const ProjectDetailPage = () => {
       {/* Content based on tab */}
       <div className="flex-1 overflow-auto p-6">
         {activeTab === 'members' && <ProjectMembersTab project={project} />}
-        {activeTab === 'settings' && <Button onClick={() => navigate(`/projects/${id}/settings`)}>Open Settings</Button>}
+        {activeTab === 'settings' && <Button onClick={() => navigate(`/projects/${projectId}/settings`)}>Open Settings</Button>}
       </div>
     </div>
   );

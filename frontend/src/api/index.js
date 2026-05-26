@@ -17,13 +17,13 @@ export const authApi = {
 export const usersApi = {
   getAll: (params) => api.get('/users', { params }),
   getOne: (id) => api.get(`/users/${id}`),
-  updateProfile: (data) => api.patch('/users/profile', data),
-  uploadAvatar: (formData) => api.patch('/users/avatar', formData, {
+  updateProfile: (data) => api.put('/users/me/profile', data),
+  uploadAvatar: (formData) => api.post('/users/me/avatar', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
-  updateUser: (id, data) => api.patch(`/users/${id}`, data),
+  updateUser: (id, data) => api.put(`/users/${id}`, data),
   deleteUser: (id) => api.delete(`/users/${id}`),
-  getLoginHistory: () => api.get('/users/login-history'),
+  getLoginHistory: (id) => api.get(`/users/${id}/login-history`),
 };
 
 // ─── Organizations ─────────────────────────────────────
@@ -43,7 +43,7 @@ export const projectsApi = {
   getAll: (params) => api.get('/projects', { params }),
   getOne: (id) => api.get(`/projects/${id}`),
   create: (data) => api.post('/projects', data),
-  update: (id, data) => api.patch(`/projects/${id}`, data),
+  update: (id, data) => api.put(`/projects/${id}`, data),
   delete: (id) => api.delete(`/projects/${id}`),
   archive: (id) => api.patch(`/projects/${id}/archive`),
   getStats: (id) => api.get(`/projects/${id}/stats`),
@@ -64,7 +64,7 @@ export const tasksApi = {
   move: (id, data) => api.patch(`/tasks/${id}/move`, data),
   logTime: (id, data) => api.post(`/tasks/${id}/time-logs`, data),
   toggleWatch: (id) => api.patch(`/tasks/${id}/watch`),
-  bulkUpdate: (data) => api.patch('/tasks/bulk-update', data),
+  bulkUpdate: (data) => api.patch('/tasks/bulk', data),
   getActivity: (id) => api.get(`/tasks/${id}/activity`),
 };
 
@@ -73,12 +73,11 @@ export const sprintsApi = {
   getAll: (params) => api.get('/sprints', { params }),
   getOne: (id) => api.get(`/sprints/${id}`),
   create: (data) => api.post('/sprints', data),
-  update: (id, data) => api.patch(`/sprints/${id}`, data),
-  delete: (id) => api.delete(`/sprints/${id}`),
+  update: (id, data) => api.put(`/sprints/${id}`, data),
   start: (id) => api.patch(`/sprints/${id}/start`),
   complete: (id, data) => api.patch(`/sprints/${id}/complete`, data),
   getTasks: (id, params) => api.get(`/sprints/${id}/tasks`, { params }),
-  getBurndown: (id) => api.get(`/sprints/${id}/burndown`),
+  // Burndown endpoint is not available in backend routes yet.
 };
 
 // ─── Stories ───────────────────────────────────────────
@@ -113,9 +112,24 @@ export const searchApi = {
 
 // ─── Reports ───────────────────────────────────────────
 export const reportsApi = {
-  getSummary: (params) => api.get('/reports/summary', { params }),
-  getVelocity: (params) => api.get('/reports/velocity', { params }),
-  getWorkload: (params) => api.get('/reports/workload', { params }),
+  getSummary: (projectId) => {
+    if (projectId && (typeof projectId === 'string' || typeof projectId === 'number')) {
+      return api.get(`/reports/project/${projectId}/summary`);
+    }
+    return api.get('/reports/dashboard');
+  },
+  getVelocity: (projectId) => {
+    if (projectId && (typeof projectId === 'string' || typeof projectId === 'number')) {
+      return api.get(`/reports/project/${projectId}/velocity`);
+    }
+    return Promise.resolve({ data: { success: true, data: [] } });
+  },
+  getWorkload: (projectId) => {
+    if (projectId && (typeof projectId === 'string' || typeof projectId === 'number')) {
+      return api.get(`/reports/project/${projectId}/workload`);
+    }
+    return Promise.resolve({ data: { success: true, data: [] } });
+  },
   getDashboard: () => api.get('/reports/dashboard'),
 };
 
@@ -139,8 +153,8 @@ export const filesApi = {
 
 // ─── Settings ──────────────────────────────────────────
 export const settingsApi = {
-  get: () => api.get('/settings'),
-  update: (data) => api.patch('/settings', data),
+  get: () => api.get('/settings/organization'),
+  update: (data) => api.put('/settings/organization', data),
 };
 
 // ─── Audit ─────────────────────────────────────────────

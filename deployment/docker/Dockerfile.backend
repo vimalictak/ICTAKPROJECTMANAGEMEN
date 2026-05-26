@@ -1,0 +1,32 @@
+# ── Stage 1: Dependencies ─────────────────────────────────────────
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# ── Stage 2: Production Image ─────────────────────────────────────
+FROM node:20-alpine AS production
+WORKDIR /app
+
+# Security: run as non-root
+RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
+
+# Copy dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Create upload directories
+RUN mkdir -p uploads/avatars uploads/attachments uploads/feedback \
+    && chown -R nodejs:nodejs /app
+
+USER nodejs
+
+ENV NODE_ENV=production
+ENV PORT=5000
+
+EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget -qO- http://localhost:5000/health || exit 1
+
+CMD ["node", "src/server.js"]

@@ -71,6 +71,64 @@ router.get('/form/:id', optionalAuth, mongoIdValidator('id'), catchAsync(async (
   res.json({ success: true, data: form });
 }));
 
+// Submit feedback (public — allows anonymous submissions via published forms)
+router.post('/', optionalAuth, catchAsync(async (req, res, next) => {
+  const { projectId, formId, category = 'other', customFields = [], respondToTask, submitterName, submitterEmail } = req.body;
+
+  if (!projectId) {
+    return next(new AppError('Project ID is required', 400));
+  }
+
+  const project = await Project.findById(projectId);
+  if (!project) return next(new AppError('Project not found', 404));
+
+  let form = null;
+  if (formId) {
+    form = await FeedbackForm.findById(formId);
+    if (!form || form.isDeleted) {
+      return next(new AppError('Form not found', 404));
+    }
+    if (form.status === 'archived' || form.responseClosed) {
+      return next(new AppError('This form is no longer accepting responses', 400));
+    }
+    if (form.status !== 'published' && (!req.user || form.createdBy.toString() !== req.user._id.toString())) {
+      return next(new AppError('Form not found', 404));
+    }
+  } else if (!req.user) {
+    return next(new AppError('Authentication required to submit feedback without a published form', 401));
+  }
+
+  const submittedBy = req.user ? req.user._id : null;
+  const submitterNameValue = submitterName || req.user?.name || '';
+  const submitterEmailValue = submitterEmail || req.user?.email || '';
+
+  const allowedCategories = ['ui_ux', 'bug', 'suggestion', 'other'];
+  const finalCategory = allowedCategories.includes(category) ? category : 'other';
+
+  const feedback = await Feedback.create({
+    project: projectId,
+    organization: project.organization,
+    submittedBy,
+    submitterName: submitterNameValue,
+    submitterEmail: submitterEmailValue,
+    category: finalCategory,
+    customFields,
+    formId: formId || null,
+    respondToTask: respondToTask || null,
+    respondToTaskTitle: respondToTask ? (await Task.findById(respondToTask))?.title : null,
+    title: customFields.find(f => f.label === 'title')?.value || 'Feedback Submission',
+    description: customFields.find(f => f.label === 'description')?.value || '',
+  });
+
+  // Increment form response count
+  if (form) {
+    form.totalResponses += 1;
+    await form.save();
+  }
+
+  res.status(201).json({ success: true, data: feedback });
+}));
+
 router.use(protect);
 
 // Create new feedback form
@@ -192,60 +250,7 @@ router.get('/', protect, catchAsync(async (req, res) => {
   res.json({ success: true, data: feedbacks, pagination: { total, page: parseInt(page), limit: parseInt(limit) } });
 }));
 
-// Submit feedback
-router.post('/', optionalAuth, catchAsync(async (req, res, next) => {
-  const { projectId, formId, category = 'other', customFields = [], respondToTask, submitterName, submitterEmail } = req.body;
 
-  if (!projectId) {
-    return next(new AppError('Project ID is required', 400));
-  }
-
-  const project = await Project.findById(projectId);
-  if (!project) return next(new AppError('Project not found', 404));
-
-  let form = null;
-  if (formId) {
-    form = await FeedbackForm.findById(formId);
-    if (!form || form.isDeleted) {
-      return next(new AppError('Form not found', 404));
-    }
-    if (form.status === 'archived' || form.responseClosed) {
-      return next(new AppError('This form is no longer accepting responses', 400));
-    }
-    if (form.status !== 'published' && (!req.user || form.createdBy.toString() !== req.user._id.toString())) {
-      return next(new AppError('Form not found', 404));
-    }
-  } else if (!req.user) {
-    return next(new AppError('Authentication required to submit feedback without a published form', 401));
-  }
-
-  const submittedBy = req.user ? req.user._id : null;
-  const submitterNameValue = submitterName || req.user?.name || '';
-  const submitterEmailValue = submitterEmail || req.user?.email || '';
-
-  const feedback = await Feedback.create({
-    project: projectId,
-    organization: project.organization,
-    submittedBy,
-    submitterName: submitterNameValue,
-    submitterEmail: submitterEmailValue,
-    category,
-    customFields,
-    formId: formId || null,
-    respondToTask: respondToTask || null,
-    respondToTaskTitle: respondToTask ? (await Task.findById(respondToTask))?.title : null,
-    title: customFields.find(f => f.label === 'title')?.value || 'Feedback Submission',
-    description: customFields.find(f => f.label === 'description')?.value || '',
-  });
-
-  // Increment form response count
-  if (form) {
-    form.totalResponses += 1;
-    await form.save();
-  }
-
-  res.status(201).json({ success: true, data: feedback });
-}));
 
 // Get single feedback
 router.get('/:id', mongoIdValidator('id'), catchAsync(async (req, res, next) => {

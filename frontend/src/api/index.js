@@ -148,13 +148,13 @@ getSummary: (projectId) => {
     if (projectId && (typeof projectId === 'string' || typeof projectId === 'number')) {
       return api.get(`/reports/project/${projectId}/velocity`);
     }
-    return Promise.resolve({ data: { success: true, data: [] } });
+    return api.get('/reports/velocity');
   },
   getWorkload: (projectId) => {
     if (projectId && (typeof projectId === 'string' || typeof projectId === 'number')) {
       return api.get(`/reports/project/${projectId}/workload`);
     }
-    return Promise.resolve({ data: { success: true, data: [] } });
+    return api.get('/reports/workload');
   },
   getDashboard: () => api.get('/reports/dashboard'),
 };

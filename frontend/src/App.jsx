@@ -101,6 +101,9 @@ export default function App() {
       <Route path="/reset-password/:token" element={<PublicRoute><SuspenseWrapper><ResetPasswordPage /></SuspenseWrapper></PublicRoute>} />
       <Route path="/verify-email/:token" element={<SuspenseWrapper><VerifyEmailPage /></SuspenseWrapper>} />
 
+      {/* Public feedback form — accessible without login (like Google Forms) */}
+      <Route path="/feedback/form/:formId" element={<SuspenseWrapper><FeedbackFormSubmission /></SuspenseWrapper>} />
+
       {/* Protected app routes */}
       <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
@@ -145,7 +148,6 @@ export default function App() {
         {/* Feedback */}
         <Route path="feedback" element={<SuspenseWrapper><FeedbackPage /></SuspenseWrapper>} />
         <Route path="feedback/:feedbackId" element={<SuspenseWrapper><FeedbackDetailPage /></SuspenseWrapper>} />
-        <Route path="feedback/form/:formId" element={<SuspenseWrapper><FeedbackFormSubmission /></SuspenseWrapper>} />
         <Route path="feedback/form/:formId/edit" element={<SuspenseWrapper><FeedbackFormEditor /></SuspenseWrapper>} />
 
         {/* Profile & Settings */}

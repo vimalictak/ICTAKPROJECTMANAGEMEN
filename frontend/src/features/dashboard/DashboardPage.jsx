@@ -50,10 +50,10 @@ const DashboardPage = () => {
     sprintsApi.getAll({ status: 'active', limit: 3 })
   );
 
-  const stats = dashboard?.stats || {};
-  const tasksByStatus = dashboard?.tasksByStatus || [];
-  const weeklyActivity = dashboard?.weeklyActivity || [];
-  const teamWorkload = dashboard?.teamWorkload || [];
+  const stats = dashboard?.data?.stats || {};
+  const tasksByStatus = dashboard?.data?.tasksByStatus || [];
+  const weeklyActivity = dashboard?.data?.weeklyActivity || [];
+  const teamWorkload = dashboard?.data?.teamWorkload || [];
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -88,15 +88,7 @@ const DashboardPage = () => {
           <CardContent>
             {loading ? <Skeleton className="h-40 w-full" /> : (
               <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={weeklyActivity.length ? weeklyActivity : [
-                  { day: 'Mon', completed: 4, created: 7 },
-                  { day: 'Tue', completed: 6, created: 5 },
-                  { day: 'Wed', completed: 8, created: 9 },
-                  { day: 'Thu', completed: 5, created: 6 },
-                  { day: 'Fri', completed: 10, created: 8 },
-                  { day: 'Sat', completed: 3, created: 2 },
-                  { day: 'Sun', completed: 1, created: 1 },
-                ]}>
+                <BarChart data={weeklyActivity}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="day" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
@@ -119,14 +111,11 @@ const DashboardPage = () => {
               <ResponsiveContainer width="100%" height={160}>
                 <PieChart>
                   <Pie
-                    data={tasksByStatus.length ? tasksByStatus : [
-                      { name: 'Todo', value: 12 }, { name: 'In Progress', value: 8 },
-                      { name: 'Review', value: 5 }, { name: 'Done', value: 20 },
-                    ]}
+                    data={tasksByStatus.length ? tasksByStatus : [{ name: 'No tasks', value: 1 }]}
                     cx="50%" cy="50%" innerRadius={40} outerRadius={65}
                     dataKey="value"
                   >
-                    {(tasksByStatus.length ? tasksByStatus : [1,2,3,4]).map((_, i) => (
+                    {(tasksByStatus.length ? tasksByStatus : [1]).map((_, i) => (
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}
                   </Pie>

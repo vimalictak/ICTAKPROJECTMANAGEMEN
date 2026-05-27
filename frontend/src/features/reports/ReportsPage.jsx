@@ -9,29 +9,6 @@ import { reportsApi } from '../../api';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'];
 
-const mockVelocity = [
-  { sprint: 'Sprint 1', planned: 30, completed: 25 },
-  { sprint: 'Sprint 2', planned: 35, completed: 32 },
-  { sprint: 'Sprint 3', planned: 40, completed: 38 },
-  { sprint: 'Sprint 4', planned: 38, completed: 40 },
-  { sprint: 'Sprint 5', planned: 42, completed: 35 },
-];
-
-const mockWorkload = [
-  { name: 'Alice', tasks: 12, hours: 45 },
-  { name: 'Bob', tasks: 8, hours: 32 },
-  { name: 'Carol', tasks: 15, hours: 58 },
-  { name: 'Dave', tasks: 6, hours: 24 },
-  { name: 'Eve', tasks: 10, hours: 41 },
-];
-
-const mockPriority = [
-  { name: 'Critical', value: 5 },
-  { name: 'High', value: 18 },
-  { name: 'Medium', value: 34 },
-  { name: 'Low', value: 23 },
-];
-
 export const ReportsPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const { data: summary, loading } = useQuery(() => reportsApi.getSummary({}));
@@ -44,6 +21,10 @@ export const ReportsPage = () => {
     { value: 'workload', label: 'Workload' },
     { value: 'burndown', label: 'Burndown' },
   ];
+
+  const priorityData = summary?.data?.tasksByPriority || [];
+  const velocityData = velocity?.data || [];
+  const workloadData = workload?.data || [];
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -62,14 +43,16 @@ export const ReportsPage = () => {
               <CardTitle className="text-base">Tasks by Priority</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={mockPriority} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {mockPriority.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {loading ? <Skeleton className="h-60 w-full" /> : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={priorityData} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {priorityData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
@@ -80,7 +63,7 @@ export const ReportsPage = () => {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={mockVelocity}>
+                <AreaChart data={velocityData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="sprint" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
@@ -101,7 +84,7 @@ export const ReportsPage = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={velocity?.data || mockVelocity}>
+              <BarChart data={velocityData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="sprint" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
@@ -122,7 +105,7 @@ export const ReportsPage = () => {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={workload?.data || mockWorkload} layout="vertical">
+              <BarChart data={workloadData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis type="number" tick={{ fontSize: 12 }} />
                 <YAxis dataKey="name" type="category" tick={{ fontSize: 12 }} width={60} />

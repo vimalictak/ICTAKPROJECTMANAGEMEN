@@ -349,36 +349,43 @@ export const TaskModal = ({ task, isNew, defaultStatus, projectId, onClose, onUp
 
         <form id="task-form" onSubmit={handleSubmit(onSubmit)}>
           {(isNew || activeTab === 'details') && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2 items-stretch">
               {/* Left: main fields */}
-              <div className="md:col-span-2 space-y-4">
+              <div className="md:col-span-2 flex flex-col space-y-4 h-full">
                 <FormField label="Title" error={errors.title?.message} required>
                   <Input placeholder="Task title..." {...register('title')} />
                 </FormField>
-                <FormField label="Description">
-                  <Textarea placeholder="Describe the task in detail..." rows={4} {...register('description')} />
+                <FormField label="Description" className="flex-1 flex flex-col">
+                  <Textarea 
+                    placeholder="Describe the task in detail..." 
+                    className="flex-1 min-h-[220px] md:min-h-[320px] resize-none"
+                    {...register('description')} 
+                  />
                 </FormField>
               </div>
 
               {/* Right: metadata */}
-              <div className="space-y-3">
-                <FormField label="Status">
-                  <Select {...register('status')}>
-                    <option value="todo">To Do</option>
-                    <option value="pending">Pending</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="in-review">In Review</option>
-                    <option value="completed">Completed</option>
-                  </Select>
-                </FormField>
-                <FormField label="Priority">
-                  <Select {...register('priority')}>
-                    <option value="low">🟢 Low</option>
-                    <option value="medium">🟡 Medium</option>
-                    <option value="high">🟠 High</option>
-                    <option value="critical">🔴 Critical</option>
-                  </Select>
-                </FormField>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Status">
+                    <Select {...register('status')}>
+                      <option value="todo">To Do</option>
+                      <option value="pending">Pending</option>
+                      <option value="in-progress">In Progress</option>
+                      <option value="in-review">In Review</option>
+                      <option value="completed">Completed</option>
+                    </Select>
+                  </FormField>
+                  <FormField label="Priority">
+                    <Select {...register('priority')}>
+                      <option value="low">🟢 Low</option>
+                      <option value="medium">🟡 Medium</option>
+                      <option value="high">🟠 High</option>
+                      <option value="critical">🔴 Critical</option>
+                    </Select>
+                  </FormField>
+                </div>
+
                 <FormField label="Sprint" error={errors.sprint?.message}>
                   <Select {...register('sprint')}>
                     <option value="">No Sprint (Backlog)</option>
@@ -387,6 +394,7 @@ export const TaskModal = ({ task, isNew, defaultStatus, projectId, onClose, onUp
                     ))}
                   </Select>
                 </FormField>
+
                 <FormField label="Assignees">
                   <div className="relative" ref={assigneeRef}>
                     <button type="button" onClick={() => setShowAssigneeDropdown(s => !s)} className="flex items-center gap-2 w-full p-2 border rounded-md text-sm text-left">
@@ -429,6 +437,7 @@ export const TaskModal = ({ task, isNew, defaultStatus, projectId, onClose, onUp
                     )}
                   </div>
                 </FormField>
+
                 {isNew && !projectId && (
                   <FormField label="Project" error={errors.project?.message}>
                     <Select {...register('project')}>
@@ -439,18 +448,22 @@ export const TaskModal = ({ task, isNew, defaultStatus, projectId, onClose, onUp
                     </Select>
                   </FormField>
                 )}
+
                 <FormField label="Start Date">
                   <Input type="datetime-local" {...register('startDate')} />
                 </FormField>
                 <FormField label="Due Date">
                   <Input type="datetime-local" {...register('dueDate')} />
                 </FormField>
-                <FormField label="Estimated Hours">
-                  <Input type="number" min="0" step="0.5" placeholder="0" {...register('estimatedHours', { valueAsNumber: true })} />
-                </FormField>
-                <FormField label="Story Points">
-                  <Input type="number" min="0" placeholder="0" {...register('storyPoints', { valueAsNumber: true })} />
-                </FormField>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Estimated Hours">
+                    <Input type="number" min="0" step="0.5" placeholder="0" {...register('estimatedHours', { valueAsNumber: true })} />
+                  </FormField>
+                  <FormField label="Story Points">
+                    <Input type="number" min="0" placeholder="0" {...register('storyPoints', { valueAsNumber: true })} />
+                  </FormField>
+                </div>
               </div>
             </div>
           )}

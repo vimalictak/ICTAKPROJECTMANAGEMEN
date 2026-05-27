@@ -1,104 +1,517 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Star, Send } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
+import { Star, Send, CheckCircle2, AlertCircle, ChevronDown, Loader2 } from 'lucide-react';
 import { api } from '../../api';
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Google-Forms-inspired public feedback submission page.
+   Accessible without login. Single scrollable page, no multi-step wizard.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+// ── inline styles (no tailwind dependency for this standalone page) ──────────
+const styles = {
+  page: {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #e8eaf6 0%, #f3e5f5 50%, #ede7f6 100%)',
+    fontFamily: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
+    padding: '0',
+    margin: '0',
+  },
+  container: {
+    maxWidth: '680px',
+    margin: '0 auto',
+    padding: '24px 16px 60px',
+  },
+  /* ── header card ───────────────────────────────────────────── */
+  headerCard: {
+    background: '#fff',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+    marginBottom: '16px',
+  },
+  headerAccent: {
+    height: '10px',
+    background: 'linear-gradient(90deg, #673ab7, #7c4dff, #b388ff)',
+  },
+  headerBody: {
+    padding: '28px 28px 24px',
+  },
+  headerTitle: {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#1a1a2e',
+    margin: '0 0 8px',
+    lineHeight: '1.25',
+  },
+  headerDesc: {
+    fontSize: '15px',
+    color: '#5f6368',
+    margin: '0',
+    lineHeight: '1.6',
+  },
+  requiredNotice: {
+    fontSize: '13px',
+    color: '#d93025',
+    marginTop: '16px',
+  },
+  /* ── question cards ────────────────────────────────────────── */
+  questionCard: {
+    background: '#fff',
+    borderRadius: '12px',
+    padding: '28px',
+    marginBottom: '16px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+    borderLeft: '4px solid transparent',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  },
+  questionCardFocused: {
+    borderLeftColor: '#673ab7',
+    boxShadow: '0 4px 16px rgba(103,58,183,0.12)',
+  },
+  questionCardError: {
+    borderLeftColor: '#d93025',
+    boxShadow: '0 4px 16px rgba(217,48,37,0.10)',
+  },
+  label: {
+    fontSize: '16px',
+    fontWeight: '500',
+    color: '#202124',
+    marginBottom: '20px',
+    display: 'block',
+    lineHeight: '1.5',
+  },
+  required: {
+    color: '#d93025',
+    marginLeft: '4px',
+    fontWeight: '400',
+  },
+  /* ── inputs ────────────────────────────────────────────────── */
+  textInput: {
+    width: '100%',
+    border: 'none',
+    borderBottom: '2px solid #e0e0e0',
+    padding: '10px 0',
+    fontSize: '15px',
+    color: '#202124',
+    background: 'transparent',
+    outline: 'none',
+    transition: 'border-color 0.2s',
+    fontFamily: 'inherit',
+    boxSizing: 'border-box',
+  },
+  textInputFocused: {
+    borderBottomColor: '#673ab7',
+  },
+  textarea: {
+    width: '100%',
+    border: '1px solid #e0e0e0',
+    borderRadius: '8px',
+    padding: '14px',
+    fontSize: '15px',
+    color: '#202124',
+    background: '#fff',
+    outline: 'none',
+    transition: 'border-color 0.2s',
+    fontFamily: 'inherit',
+    resize: 'vertical',
+    minHeight: '100px',
+    lineHeight: '1.5',
+    boxSizing: 'border-box',
+  },
+  textareaFocused: {
+    borderColor: '#673ab7',
+    boxShadow: '0 0 0 2px rgba(103,58,183,0.1)',
+  },
+  /* ── select ────────────────────────────────────────────────── */
+  selectWrapper: {
+    position: 'relative',
+    width: '100%',
+    maxWidth: '300px',
+  },
+  select: {
+    width: '100%',
+    border: '1px solid #e0e0e0',
+    borderRadius: '8px',
+    padding: '12px 40px 12px 14px',
+    fontSize: '15px',
+    color: '#202124',
+    background: '#fff',
+    outline: 'none',
+    appearance: 'none',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    transition: 'border-color 0.2s',
+  },
+  selectFocused: {
+    borderColor: '#673ab7',
+  },
+  selectIcon: {
+    position: 'absolute',
+    right: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    pointerEvents: 'none',
+    color: '#5f6368',
+  },
+  /* ── radio / checkbox ──────────────────────────────────────── */
+  optionsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  optionLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    padding: '10px 12px',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'background 0.15s',
+    fontSize: '15px',
+    color: '#202124',
+  },
+  optionLabelHover: {
+    background: '#f5f0ff',
+  },
+  radioOuter: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '50%',
+    border: '2px solid #5f6368',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    transition: 'border-color 0.15s',
+  },
+  radioOuterChecked: {
+    borderColor: '#673ab7',
+  },
+  radioInner: {
+    width: '10px',
+    height: '10px',
+    borderRadius: '50%',
+    background: '#673ab7',
+    transform: 'scale(0)',
+    transition: 'transform 0.15s',
+  },
+  radioInnerChecked: {
+    transform: 'scale(1)',
+  },
+  checkboxOuter: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '4px',
+    border: '2px solid #5f6368',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    transition: 'all 0.15s',
+  },
+  checkboxOuterChecked: {
+    background: '#673ab7',
+    borderColor: '#673ab7',
+  },
+  /* ── rating stars ──────────────────────────────────────────── */
+  starsRow: {
+    display: 'flex',
+    gap: '6px',
+  },
+  starBtn: {
+    background: 'none',
+    border: 'none',
+    padding: '4px',
+    cursor: 'pointer',
+    transition: 'transform 0.15s',
+    borderRadius: '4px',
+  },
+  starBtnHover: {
+    transform: 'scale(1.2)',
+  },
+  /* ── file ───────────────────────────────────────────────────── */
+  fileInput: {
+    width: '100%',
+    border: '2px dashed #e0e0e0',
+    borderRadius: '8px',
+    padding: '20px',
+    textAlign: 'center',
+    cursor: 'pointer',
+    color: '#5f6368',
+    fontSize: '14px',
+    transition: 'border-color 0.2s',
+    background: '#fafafa',
+    boxSizing: 'border-box',
+  },
+  /* ── buttons ────────────────────────────────────────────────── */
+  submitBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '10px',
+    background: '#673ab7',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '12px 32px',
+    fontSize: '15px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'background 0.2s, transform 0.1s, box-shadow 0.2s',
+    fontFamily: 'inherit',
+    boxShadow: '0 2px 8px rgba(103,58,183,0.25)',
+  },
+  submitBtnHover: {
+    background: '#5e35b1',
+    boxShadow: '0 4px 16px rgba(103,58,183,0.35)',
+  },
+  submitBtnDisabled: {
+    background: '#bdbdbd',
+    cursor: 'not-allowed',
+    boxShadow: 'none',
+  },
+  clearBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#673ab7',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    padding: '8px 16px',
+    borderRadius: '6px',
+    transition: 'background 0.15s',
+    fontFamily: 'inherit',
+  },
+  clearBtnHover: {
+    background: '#f3e8ff',
+  },
+  /* ── footer ─────────────────────────────────────────────────── */
+  footerRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: '8px',
+  },
+  branding: {
+    textAlign: 'center',
+    marginTop: '24px',
+    fontSize: '13px',
+    color: '#9e9e9e',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+  },
+  brandingBold: {
+    fontWeight: '600',
+    color: '#673ab7',
+  },
+  /* ── success screen ─────────────────────────────────────────── */
+  successCard: {
+    background: '#fff',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+    textAlign: 'center',
+    padding: '48px 28px',
+  },
+  successIcon: {
+    width: '72px',
+    height: '72px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 20px',
+  },
+  successTitle: {
+    fontSize: '24px',
+    fontWeight: '700',
+    color: '#1a1a2e',
+    margin: '0 0 8px',
+  },
+  successDesc: {
+    fontSize: '15px',
+    color: '#5f6368',
+    margin: '0 0 28px',
+    lineHeight: '1.6',
+  },
+  submitAnotherBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'none',
+    color: '#673ab7',
+    border: '2px solid #673ab7',
+    borderRadius: '8px',
+    padding: '10px 24px',
+    fontSize: '15px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'background 0.2s, color 0.2s',
+    fontFamily: 'inherit',
+  },
+  /* ── loading ────────────────────────────────────────────────── */
+  loadingContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '100vh',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  spinner: {
+    width: '40px',
+    height: '40px',
+    border: '4px solid #e0e0e0',
+    borderTopColor: '#673ab7',
+    borderRadius: '50%',
+    animation: 'gf-spin 0.7s linear infinite',
+  },
+  /* ── error ──────────────────────────────────────────────────── */
+  errorCard: {
+    background: '#fff',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+    textAlign: 'center',
+    padding: '48px 28px',
+  },
+  errorIcon: {
+    width: '72px',
+    height: '72px',
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, #ffebee, #ffcdd2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 20px',
+  },
+  fieldError: {
+    color: '#d93025',
+    fontSize: '13px',
+    marginTop: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
+};
+
+// Keyframes injected once
+const injectKeyframes = () => {
+  if (document.getElementById('gf-keyframes')) return;
+  const style = document.createElement('style');
+  style.id = 'gf-keyframes';
+  style.textContent = `
+    @keyframes gf-spin { to { transform: rotate(360deg); } }
+    @keyframes gf-fade-up {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes gf-success-pop {
+      0%   { transform: scale(0); }
+      60%  { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+    .gf-card-enter { animation: gf-fade-up 0.4s ease-out both; }
+    .gf-success-pop { animation: gf-success-pop 0.5s ease-out both; }
+  `;
+  document.head.appendChild(style);
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ═══════════════════════════════════════════════════════════════════════════════ */
 const FeedbackFormSubmission = () => {
   const { formId } = useParams();
-  const navigate = useNavigate();
   const [form, setForm] = useState(null);
   const [formData, setFormData] = useState({});
   const [submitterInfo, setSubmitterInfo] = useState({ name: '', email: '' });
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [focusedField, setFocusedField] = useState(null);
+  const [submitHover, setSubmitHover] = useState(false);
+  const [clearHover, setClearHover] = useState(false);
+  const formRef = useRef(null);
 
-  useEffect(() => {
-    loadForm();
-  }, [formId]);
+  useEffect(() => { injectKeyframes(); }, []);
+
+  useEffect(() => { loadForm(); }, [formId]);
 
   const loadForm = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await api.get(`/feedback/form/${formId}`);
       setForm(res.data.data);
 
-      // Initialize form data
       const initialData = {};
       res.data.data.fields.forEach(field => {
         initialData[field.id] = field.type === 'checkbox' ? [] : '';
       });
       setFormData(initialData);
-
-      // Load tasks if form allows task response and the user is authenticated
-      if (res.data.data.allowTaskResponse) {
-        try {
-          if (localStorage.getItem('accessToken')) {
-            const taskRes = await api.get(`/tasks?project=${res.data.data.project}`);
-            setTasks(taskRes.data.data);
-          }
-        } catch (taskError) {
-          console.warn('Task loading skipped for anonymous visitor', taskError);
-          setTasks([]);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load form:', error);
-      alert('Form not found or no longer available');
-      navigate('/feedback');
+    } catch (err) {
+      console.error('Failed to load form:', err);
+      setError('This form is no longer available or the link is invalid.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleFieldChange = (fieldId, value) => {
-    setFormData({
-      ...formData,
-      [fieldId]: value,
-    });
+    setFormData(prev => ({ ...prev, [fieldId]: value }));
+    if (fieldErrors[fieldId]) {
+      setFieldErrors(prev => { const n = { ...prev }; delete n[fieldId]; return n; });
+    }
   };
 
   const handleCheckboxChange = (fieldId, value) => {
     const current = formData[fieldId] || [];
-    if (current.includes(value)) {
-      setFormData({
-        ...formData,
-        [fieldId]: current.filter(v => v !== value),
-      });
-    } else {
-      setFormData({
-        ...formData,
-        [fieldId]: [...current, value],
-      });
+    const updated = current.includes(value)
+      ? current.filter(v => v !== value)
+      : [...current, value];
+    setFormData(prev => ({ ...prev, [fieldId]: updated }));
+    if (fieldErrors[fieldId]) {
+      setFieldErrors(prev => { const n = { ...prev }; delete n[fieldId]; return n; });
     }
+  };
+
+  const validate = () => {
+    const errs = {};
+    if (form.collectName && !submitterInfo.name.trim()) errs._name = 'This is a required question';
+    if (form.collectEmail && !submitterInfo.email.trim()) errs._email = 'This is a required question';
+    if (form.collectEmail && submitterInfo.email && !/\S+@\S+\.\S+/.test(submitterInfo.email)) {
+      errs._email = 'Please enter a valid email address';
+    }
+    form.fields.forEach(field => {
+      if (field.required) {
+        const val = formData[field.id];
+        if (val === '' || val === undefined || val === null || (Array.isArray(val) && val.length === 0)) {
+          errs[field.id] = 'This is a required question';
+        }
+      }
+    });
+    return errs;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validate required fields
-    for (const field of form.fields) {
-      if (field.required && !formData[field.id]) {
-        alert(`${field.label} is required`);
-        return;
-      }
-    }
-
-    if (form.collectName && !submitterInfo.name) {
-      alert('Your name is required');
-      return;
-    }
-
-    if (form.collectEmail && !submitterInfo.email) {
-      alert('Your email is required');
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      // Scroll to first error
+      const firstErrKey = Object.keys(errs)[0];
+      const el = document.getElementById(`field-${firstErrKey}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
     try {
       setSubmitting(true);
-
       const customFields = form.fields.map(field => ({
         fieldId: field.id,
         label: field.label,
@@ -112,375 +525,482 @@ const FeedbackFormSubmission = () => {
         submitterName: submitterInfo.name,
         submitterEmail: submitterInfo.email,
         category: formData.category || 'other',
-        respondToTask: selectedTask,
       });
 
-      alert('Thank you! Your feedback has been submitted successfully.');
-      navigate('/feedback');
-    } catch (error) {
-      console.error('Failed to submit feedback:', error);
-      alert('Failed to submit feedback. Please try again.');
+      setSubmitted(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      console.error('Failed to submit feedback:', err);
+      alert('Failed to submit. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleClear = () => {
+    const initialData = {};
+    form.fields.forEach(field => {
+      initialData[field.id] = field.type === 'checkbox' ? [] : '';
+    });
+    setFormData(initialData);
+    setSubmitterInfo({ name: '', email: '' });
+    setFieldErrors({});
+  };
+
+  const handleSubmitAnother = () => {
+    handleClear();
+    setSubmitted(false);
+  };
+
+  // ── LOADING STATE ──────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div style={styles.page}>
+        <div style={styles.loadingContainer}>
+          <div style={styles.spinner} />
+          <span style={{ color: '#5f6368', fontSize: '15px' }}>Loading form…</span>
+        </div>
       </div>
     );
   }
 
-  if (!form) {
+  // ── ERROR STATE ────────────────────────────────────────────
+  if (error || !form) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-600">Form not found</p>
+      <div style={styles.page}>
+        <div style={styles.container}>
+          <div style={styles.errorCard} className="gf-card-enter">
+            <div style={styles.headerAccent} />
+            <div style={{ padding: '48px 28px' }}>
+              <div style={styles.errorIcon}>
+                <AlertCircle size={36} color="#d93025" />
+              </div>
+              <h1 style={{ ...styles.headerTitle, marginBottom: '12px' }}>Form Not Available</h1>
+              <p style={styles.headerDesc}>
+                {error || 'This form could not be found. It may have been deleted or the link is incorrect.'}
+              </p>
+            </div>
+          </div>
+          <div style={styles.branding}>
+            <span style={styles.brandingBold}>ProjectFlow</span>
+          </div>
+        </div>
       </div>
     );
   }
 
-  const totalSteps = Math.ceil(form.fields.length / 3) + (form.allowTaskResponse ? 1 : 0) + 1;
-  const pages = [
-    {
-      title: 'Basic Information',
-      fields: ['name', 'email'],
-      show: form.collectName || form.collectEmail,
-    },
-    ...Array.from({ length: Math.ceil(form.fields.length / 3) }, (_, i) => ({
-      title: `Questions ${i * 3 + 1}-${Math.min((i + 1) * 3, form.fields.length)}`,
-      fields: form.fields.slice(i * 3, (i + 1) * 3),
-      show: true,
-    })),
-    {
-      title: form.allowTaskResponse ? 'Link to Task (Optional)' : 'Confirmation',
-      show: true,
-    },
-    {
-      title: 'Confirmation',
-      show: true,
-    },
-  ].filter(p => p.show);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-t-2xl p-8 shadow-lg">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">{form.title}</h1>
-          {form.description && <p className="text-gray-600">{form.description}</p>}
-
-          {/* Progress Bar */}
-          {form.showProgressBar && (
-            <div className="mt-6">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>Step {currentStep + 1} of {totalSteps}</span>
-                <span>{Math.round(((currentStep + 1) / totalSteps) * 100)}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
-                ></div>
-              </div>
+  // ── SUCCESS STATE ──────────────────────────────────────────
+  if (submitted) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.container}>
+          {/* Keep the header card visible */}
+          <div style={styles.headerCard} className="gf-card-enter">
+            <div style={styles.headerAccent} />
+            <div style={styles.headerBody}>
+              <h1 style={styles.headerTitle}>{form.title}</h1>
             </div>
-          )}
+          </div>
+
+          <div style={styles.successCard} className="gf-card-enter">
+            <div style={styles.successIcon} className="gf-success-pop">
+              <CheckCircle2 size={36} color="#2e7d32" />
+            </div>
+            <h2 style={styles.successTitle}>Your response has been recorded</h2>
+            <p style={styles.successDesc}>
+              Thank you for your feedback! We appreciate your time and input.
+            </p>
+            <button
+              onClick={handleSubmitAnother}
+              style={styles.submitAnotherBtn}
+              onMouseEnter={e => { e.target.style.background = '#673ab7'; e.target.style.color = '#fff'; }}
+              onMouseLeave={e => { e.target.style.background = 'none'; e.target.style.color = '#673ab7'; }}
+            >
+              Submit another response
+            </button>
+          </div>
+          <div style={styles.branding}>
+            <span style={styles.brandingBold}>ProjectFlow</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── CHECK FOR REQUIRED FIELDS ─────────────────────────────
+  const hasRequired = form.fields.some(f => f.required) || form.collectName || form.collectEmail;
+
+  // ── MAIN FORM ──────────────────────────────────────────────
+  return (
+    <div style={styles.page}>
+      <div style={styles.container}>
+        {/* ─── HEADER CARD ─────────────────────────────────── */}
+        <div style={styles.headerCard} className="gf-card-enter">
+          <div style={styles.headerAccent} />
+          <div style={styles.headerBody}>
+            <h1 style={styles.headerTitle}>{form.title}</h1>
+            {form.description && <p style={styles.headerDesc}>{form.description}</p>}
+            {hasRequired && (
+              <p style={styles.requiredNotice}>* Indicates required question</p>
+            )}
+          </div>
         </div>
 
-        {/* Form Content */}
-        <form onSubmit={handleSubmit} className="bg-white p-8 shadow-lg space-y-6">
-          {/* Step 0: Basic Info */}
-          {currentStep === 0 && (
-            <div className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} noValidate>
+          {/* ─── SUBMITTER INFO (name / email) ─────────────── */}
+          {(form.collectName || form.collectEmail) && (
+            <div
+              id="field-_name"
+              className="gf-card-enter"
+              style={{
+                ...styles.questionCard,
+                ...(focusedField === '_name' || focusedField === '_email' ? styles.questionCardFocused : {}),
+                ...((fieldErrors._name || fieldErrors._email) ? styles.questionCardError : {}),
+                animationDelay: '0.05s',
+              }}
+            >
               {form.collectName && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+                <div style={{ marginBottom: form.collectEmail ? '24px' : '0' }}>
+                  <label style={styles.label}>
+                    Your Name <span style={styles.required}>*</span>
+                  </label>
                   <input
                     type="text"
+                    placeholder="Enter your name"
                     value={submitterInfo.name}
-                    onChange={(e) => setSubmitterInfo({ ...submitterInfo, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={e => setSubmitterInfo({ ...submitterInfo, name: e.target.value })}
+                    onFocus={() => setFocusedField('_name')}
+                    onBlur={() => setFocusedField(null)}
+                    style={{
+                      ...styles.textInput,
+                      ...(focusedField === '_name' ? styles.textInputFocused : {}),
+                    }}
                   />
+                  {fieldErrors._name && (
+                    <div style={styles.fieldError}>
+                      <AlertCircle size={14} /> {fieldErrors._name}
+                    </div>
+                  )}
                 </div>
               )}
               {form.collectEmail && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Your Email</label>
+                <div id="field-_email">
+                  <label style={styles.label}>
+                    Your Email <span style={styles.required}>*</span>
+                  </label>
                   <input
                     type="email"
+                    placeholder="Enter your email"
                     value={submitterInfo.email}
-                    onChange={(e) => setSubmitterInfo({ ...submitterInfo, email: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={e => setSubmitterInfo({ ...submitterInfo, email: e.target.value })}
+                    onFocus={() => setFocusedField('_email')}
+                    onBlur={() => setFocusedField(null)}
+                    style={{
+                      ...styles.textInput,
+                      ...(focusedField === '_email' ? styles.textInputFocused : {}),
+                    }}
                   />
+                  {fieldErrors._email && (
+                    <div style={styles.fieldError}>
+                      <AlertCircle size={14} /> {fieldErrors._email}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Steps 1+: Form Fields */}
-          {currentStep > 0 && currentStep < totalSteps - (form.allowTaskResponse ? 2 : 1) && (
-            <div className="space-y-6">
-              {form.fields
-                .slice((currentStep - 1) * 3, currentStep * 3)
-                .map((field) => (
-                  <FormField
-                    key={field.id}
-                    field={field}
-                    value={formData[field.id]}
-                    onChange={(value) => handleFieldChange(field.id, value)}
-                    onCheckboxChange={(value) => handleCheckboxChange(field.id, value)}
-                  />
-                ))}
+          {/* ─── FORM FIELDS (one card each) ──────────────── */}
+          {form.fields.map((field, idx) => (
+            <div
+              key={field.id}
+              id={`field-${field.id}`}
+              className="gf-card-enter"
+              style={{
+                ...styles.questionCard,
+                ...(focusedField === field.id ? styles.questionCardFocused : {}),
+                ...(fieldErrors[field.id] ? styles.questionCardError : {}),
+                animationDelay: `${(idx + 1) * 0.05}s`,
+              }}
+            >
+              <FormField
+                field={field}
+                value={formData[field.id]}
+                onChange={val => handleFieldChange(field.id, val)}
+                onCheckboxChange={val => handleCheckboxChange(field.id, val)}
+                onFocus={() => setFocusedField(field.id)}
+                onBlur={() => setFocusedField(null)}
+                focused={focusedField === field.id}
+                error={fieldErrors[field.id]}
+              />
             </div>
-          )}
+          ))}
 
-          {/* Task Link Step */}
-          {form.allowTaskResponse && currentStep === totalSteps - 2 && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Link this feedback to a task (Optional)
-                </label>
-                <p className="text-sm text-gray-600 mb-4">
-                  If this feedback is related to a specific task, you can link it here.
-                </p>
-                <select
-                  value={selectedTask || ''}
-                  onChange={(e) => setSelectedTask(e.target.value || null)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">-- Select a task (optional) --</option>
-                  {tasks.map((task) => (
-                    <option key={task._id} value={task._id}>
-                      {task.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {/* Confirmation Step */}
-          {currentStep === totalSteps - 1 && (
-            <div className="text-center py-8">
-              <div className="text-5xl mb-4">✓</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Thank You!</h2>
-              <p className="text-gray-600 mb-6">
-                Your feedback has been successfully submitted. We appreciate your input and will review it soon.
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-gray-700">
-                  <strong>What's next?</strong> Our team will review your feedback and may follow up with you if needed.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Navigation */}
-          <div className="flex gap-4 justify-between">
+          {/* ─── SUBMIT ROW ───────────────────────────────── */}
+          <div style={styles.footerRow}>
+            <button
+              type="submit"
+              disabled={submitting}
+              style={{
+                ...styles.submitBtn,
+                ...(submitting ? styles.submitBtnDisabled : {}),
+                ...(submitHover && !submitting ? styles.submitBtnHover : {}),
+              }}
+              onMouseEnter={() => setSubmitHover(true)}
+              onMouseLeave={() => setSubmitHover(false)}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 size={18} style={{ animation: 'gf-spin 0.7s linear infinite' }} />
+                  Submitting…
+                </>
+              ) : (
+                <>
+                  <Send size={18} />
+                  Submit
+                </>
+              )}
+            </button>
             <button
               type="button"
-              onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-              disabled={currentStep === 0}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleClear}
+              style={{
+                ...styles.clearBtn,
+                ...(clearHover ? styles.clearBtnHover : {}),
+              }}
+              onMouseEnter={() => setClearHover(true)}
+              onMouseLeave={() => setClearHover(false)}
             >
-              Previous
+              Clear form
             </button>
-            {currentStep < totalSteps - 1 ? (
-              <button
-                type="button"
-                onClick={() => setCurrentStep(Math.min(totalSteps - 1, currentStep + 1))}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2"
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium disabled:opacity-50 flex items-center gap-2"
-              >
-                <Send size={18} />
-                {submitting ? 'Submitting...' : 'Submit Feedback'}
-              </button>
-            )}
           </div>
         </form>
+
+        {/* ─── BRANDING ───────────────────────────────────── */}
+        <div style={styles.branding}>
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <rect width="24" height="24" rx="4" fill="#673ab7" />
+            <path d="M6 6h7a4 4 0 010 8H6V6z" fill="white" />
+            <rect x="6" y="16" width="12" height="2.5" rx="1.25" fill="white" opacity="0.7" />
+          </svg>
+          <span style={styles.brandingBold}>ProjectFlow</span>
+        </div>
       </div>
     </div>
   );
 };
 
-// Form Field Component
-const FormField = ({ field, value, onChange, onCheckboxChange }) => {
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   FORM FIELD COMPONENT
+   ═══════════════════════════════════════════════════════════════════════════════ */
+const FormField = ({ field, value, onChange, onCheckboxChange, onFocus, onBlur, focused, error }) => {
+  const [hoverOption, setHoverOption] = useState(null);
+  const [hoverStar, setHoverStar] = useState(null);
+
+  const fieldLabel = (
+    <label style={styles.label}>
+      {field.label}
+      {field.required && <span style={styles.required}>*</span>}
+    </label>
+  );
+
+  const fieldError = error ? (
+    <div style={styles.fieldError}>
+      <AlertCircle size={14} /> {error}
+    </div>
+  ) : null;
+
   switch (field.type) {
     case 'text':
+    case 'email':
       return (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {field.label}
-            {field.required && <span className="text-red-600">*</span>}
-          </label>
+        <>
+          {fieldLabel}
           <input
-            type="text"
+            type={field.type === 'email' ? 'email' : 'text'}
             value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={field.placeholder}
-            required={field.required}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onChange={e => onChange(e.target.value)}
+            placeholder={field.placeholder || 'Your answer'}
+            onFocus={onFocus}
+            onBlur={onBlur}
+            style={{
+              ...styles.textInput,
+              ...(focused ? styles.textInputFocused : {}),
+            }}
           />
-        </div>
+          {fieldError}
+        </>
       );
 
     case 'textarea':
       return (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {field.label}
-            {field.required && <span className="text-red-600">*</span>}
-          </label>
+        <>
+          {fieldLabel}
           <textarea
             value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={field.placeholder}
-            required={field.required}
+            onChange={e => onChange(e.target.value)}
+            placeholder={field.placeholder || 'Your answer'}
+            onFocus={onFocus}
+            onBlur={onBlur}
             rows="4"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            style={{
+              ...styles.textarea,
+              ...(focused ? styles.textareaFocused : {}),
+            }}
           />
-        </div>
-      );
-
-    case 'email':
-      return (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {field.label}
-            {field.required && <span className="text-red-600">*</span>}
-          </label>
-          <input
-            type="email"
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={field.placeholder}
-            required={field.required}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
+          {fieldError}
+        </>
       );
 
     case 'select':
       return (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {field.label}
-            {field.required && <span className="text-red-600">*</span>}
-          </label>
-          <select
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            required={field.required}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="">-- Select --</option>
-            {field.options?.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <>
+          {fieldLabel}
+          <div style={styles.selectWrapper}>
+            <select
+              value={value || ''}
+              onChange={e => onChange(e.target.value)}
+              onFocus={onFocus}
+              onBlur={onBlur}
+              style={{
+                ...styles.select,
+                ...(focused ? styles.selectFocused : {}),
+                ...(value ? {} : { color: '#9e9e9e' }),
+              }}
+            >
+              <option value="" disabled>Choose</option>
+              {field.options?.map(opt => (
+                <option key={opt.value} value={opt.value} style={{ color: '#202124' }}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={18} style={styles.selectIcon} />
+          </div>
+          {fieldError}
+        </>
       );
 
     case 'radio':
       return (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            {field.label}
-            {field.required && <span className="text-red-600">*</span>}
-          </label>
-          <div className="space-y-2">
-            {field.options?.map((option) => (
-              <label key={option.value} className="flex items-center">
-                <input
-                  type="radio"
-                  name={field.id}
-                  value={option.value}
-                  checked={value === option.value}
-                  onChange={(e) => onChange(e.target.value)}
-                  required={field.required}
-                  className="mr-2"
-                />
-                <span className="text-gray-700">{option.label}</span>
-              </label>
-            ))}
+        <>
+          {fieldLabel}
+          <div style={styles.optionsList}>
+            {field.options?.map(opt => {
+              const checked = value === opt.value;
+              return (
+                <label
+                  key={opt.value}
+                  style={{
+                    ...styles.optionLabel,
+                    ...(hoverOption === opt.value ? styles.optionLabelHover : {}),
+                  }}
+                  onMouseEnter={() => setHoverOption(opt.value)}
+                  onMouseLeave={() => setHoverOption(null)}
+                  onClick={() => onChange(opt.value)}
+                >
+                  <div style={{
+                    ...styles.radioOuter,
+                    ...(checked ? styles.radioOuterChecked : {}),
+                  }}>
+                    <div style={{
+                      ...styles.radioInner,
+                      ...(checked ? styles.radioInnerChecked : {}),
+                    }} />
+                  </div>
+                  <span>{opt.label}</span>
+                  <input type="radio" name={field.id} value={opt.value} checked={checked} onChange={() => {}} style={{ display: 'none' }} />
+                </label>
+              );
+            })}
           </div>
-        </div>
+          {fieldError}
+        </>
       );
 
     case 'checkbox':
       return (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            {field.label}
-            {field.required && <span className="text-red-600">*</span>}
-          </label>
-          <div className="space-y-2">
-            {field.options?.map((option) => (
-              <label key={option.value} className="flex items-center">
-                <input
-                  type="checkbox"
-                  value={option.value}
-                  checked={(value || []).includes(option.value)}
-                  onChange={(e) => onCheckboxChange(option.value)}
-                  className="mr-2"
-                />
-                <span className="text-gray-700">{option.label}</span>
-              </label>
-            ))}
+        <>
+          {fieldLabel}
+          <div style={styles.optionsList}>
+            {field.options?.map(opt => {
+              const checked = (value || []).includes(opt.value);
+              return (
+                <label
+                  key={opt.value}
+                  style={{
+                    ...styles.optionLabel,
+                    ...(hoverOption === opt.value ? styles.optionLabelHover : {}),
+                  }}
+                  onMouseEnter={() => setHoverOption(opt.value)}
+                  onMouseLeave={() => setHoverOption(null)}
+                  onClick={() => onCheckboxChange(opt.value)}
+                >
+                  <div style={{
+                    ...styles.checkboxOuter,
+                    ...(checked ? styles.checkboxOuterChecked : {}),
+                  }}>
+                    {checked && (
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M3 7l3 3 5-6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </div>
+                  <span>{opt.label}</span>
+                  <input type="checkbox" value={opt.value} checked={checked} onChange={() => {}} style={{ display: 'none' }} />
+                </label>
+              );
+            })}
           </div>
-        </div>
+          {fieldError}
+        </>
       );
 
     case 'rating':
       return (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            {field.label}
-            {field.required && <span className="text-red-600">*</span>}
-          </label>
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                type="button"
-                onClick={() => onChange(star)}
-                className="transition"
-              >
-                <Star
-                  size={32}
-                  className={star <= value ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}
-                />
-              </button>
-            ))}
+        <>
+          {fieldLabel}
+          <div style={styles.starsRow}>
+            {[1, 2, 3, 4, 5].map(star => {
+              const filled = star <= (hoverStar ?? value);
+              return (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => onChange(star)}
+                  onMouseEnter={() => setHoverStar(star)}
+                  onMouseLeave={() => setHoverStar(null)}
+                  style={{
+                    ...styles.starBtn,
+                    ...(hoverStar === star ? styles.starBtnHover : {}),
+                  }}
+                >
+                  <Star
+                    size={36}
+                    fill={filled ? '#ffc107' : 'none'}
+                    color={filled ? '#ffc107' : '#dadce0'}
+                    strokeWidth={1.5}
+                  />
+                </button>
+              );
+            })}
           </div>
-        </div>
+          {fieldError}
+        </>
       );
 
     case 'file':
       return (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            {field.label}
-            {field.required && <span className="text-red-600">*</span>}
-          </label>
+        <>
+          {fieldLabel}
           <input
             type="file"
-            onChange={(e) => onChange(e.target.files?.[0])}
-            required={field.required}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            onChange={e => onChange(e.target.files?.[0])}
+            style={styles.fileInput}
           />
-        </div>
+          {fieldError}
+        </>
       );
 
     default:

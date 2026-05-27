@@ -137,6 +137,18 @@ router.delete('/:id', mongoIdValidator(), restrictTo('admin', 'manager', 'super_
 }));
 
 /**
+ * Get project members
+ */
+router.get('/:id/members', mongoIdValidator(), catchAsync(async (req, res, next) => {
+  const project = await Project.findOne({ _id: req.params.id, isDeleted: false })
+    .populate('members.user', 'name avatar email designation roles');
+
+  if (!project) return next(new AppError('Project not found', 404));
+
+  res.status(200).json({ success: true, data: { members: project.members } });
+}));
+
+/**
  * Add member to project
  */
 router.post('/:id/members', mongoIdValidator(), catchAsync(async (req, res, next) => {

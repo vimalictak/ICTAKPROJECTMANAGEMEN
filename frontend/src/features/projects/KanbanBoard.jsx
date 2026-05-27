@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,16 +26,16 @@ const TaskCard = ({ task, onClick, isDragging }) => {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}
       className={cn(
-        'group bg-card border rounded-lg p-3 cursor-pointer hover:border-primary/50 hover:shadow-sm transition-all',
+        'group bg-card border rounded-lg p-3 cursor-grab hover:border-primary/50 hover:shadow-sm transition-all active:cursor-grabbing',
         isSortDragging && 'shadow-lg'
       )}
       onClick={onClick}
     >
       {/* Drag handle */}
       <div className="flex items-start gap-2">
-        <div {...listeners} className="mt-0.5 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity">
+        <div className="mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
@@ -98,6 +98,8 @@ const Column = ({ column, tasks, onTaskClick, onAddTask }) => {
     'completed': 'bg-green-400',
   };
 
+  const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: column.id });
+
   return (
     <div className="flex flex-col w-72 shrink-0">
       {/* Column header */}
@@ -111,7 +113,7 @@ const Column = ({ column, tasks, onTaskClick, onAddTask }) => {
       </div>
 
       {/* Tasks */}
-      <div className="flex-1 min-h-[200px] rounded-xl bg-muted/30 p-2 space-y-2">
+      <div ref={setDroppableRef} className={"flex-1 min-h-[200px] rounded-xl p-2 space-y-2 " + (isOver ? 'ring-2 ring-primary/50 bg-muted/40' : 'bg-muted/30')}>
         <SortableContext items={tasks.map(t => t._id)} strategy={verticalListSortingStrategy}>
           <AnimatePresence>
             {tasks.map((task) => (
@@ -141,8 +143,14 @@ const Column = ({ column, tasks, onTaskClick, onAddTask }) => {
 
 // ─── Kanban Board ───────────────────────────────────────
 export const KanbanBoard = () => {
-  const { id: projectId } = useParams();
-  const [columns, setColumns] = useState([]);
+  const { projectId } = useParams();
+  const [columns, setColumns] = useState([
+    { id: 'todo', name: 'To Do' },
+    { id: 'pending', name: 'Pending' },
+    { id: 'in-progress', name: 'In Progress' },
+    { id: 'in-review', name: 'In Review' },
+    { id: 'completed', name: 'Completed' },
+  ]);
   const [tasksByColumn, setTasksByColumn] = useState({});
   const [activeTask, setActiveTask] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -157,15 +165,8 @@ export const KanbanBoard = () => {
   const { data: colData } = useQuery(() => projectsApi.getBoardColumns(projectId), [projectId]);
 
   useEffect(() => {
-    if (colData?.columns) {
-      const cols = colData.columns.length > 0 ? colData.columns : [
-        { id: 'todo', name: 'To Do' },
-        { id: 'pending', name: 'Pending' },
-        { id: 'in-progress', name: 'In Progress' },
-        { id: 'in-review', name: 'In Review' },
-        { id: 'completed', name: 'Completed' },
-      ];
-      setColumns(cols);
+    if (colData?.columns && colData.columns.length > 0) {
+      setColumns(colData.columns);
     }
   }, [colData]);
 
@@ -176,10 +177,11 @@ export const KanbanBoard = () => {
   );
 
   useEffect(() => {
-    if (tasksData?.tasks) {
+    const list = tasksData?.data || tasksData?.tasks || [];
+    if (list) {
       const byCol = {};
       columns.forEach(c => { byCol[c.id] = []; });
-      tasksData.tasks.forEach(t => {
+      list.forEach(t => {
         const colId = t.status;
         if (!byCol[colId]) byCol[colId] = [];
         byCol[colId].push(t);
@@ -323,3 +325,5 @@ export const KanbanBoard = () => {
     </div>
   );
 };
+
+export default KanbanBoard;

@@ -24,7 +24,7 @@ const logger = require('../config/logger');
  * @access  Public
  */
 const register = catchAsync(async (req, res, next) => {
-  const { firstName, lastName, name, email, password, organizationId } = req.body;
+  const { name, email, password, organizationId } = req.body;
 
   // Check if user exists
   const existingUser = await User.findOne({ email });
@@ -32,18 +32,13 @@ const register = catchAsync(async (req, res, next) => {
     return next(new AppError('Email already registered. Please use a different email or login.', 409));
   }
 
-  // Support both {name} and {firstName, lastName}
-  const finalFirst = firstName || (name ? name.split(' ')[0] : 'User');
-  const finalLast = lastName || (name ? name.split(' ').slice(1).join(' ') : '');
-
   // Create user
   const user = await User.create({
-    firstName: finalFirst,
-    lastName: finalLast,
+    name: name?.trim() || 'User',
     email,
     password,
     organization: organizationId,
-    roles: ['developer'],
+    roles: Array.isArray(req.body.roles) && req.body.roles.length > 0 ? req.body.roles : ['developer'],
     isActive: true,
   });
 

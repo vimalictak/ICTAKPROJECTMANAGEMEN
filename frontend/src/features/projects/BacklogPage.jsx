@@ -6,6 +6,7 @@ import { useQuery, useMutation } from '../../hooks/useQuery.js'
 import { tasksApi, sprintsApi } from '../../api/index.js'
 import { Button, Badge, Spinner, Avatar } from '../../components/ui/index.jsx'
 import { priorityColor, statusColor, cn } from '../../lib/utils.js'
+import { TaskModal } from '../tasks/TaskModal'
 
 function TaskRow({ task, sprints, onMoveToSprint }) {
   return (
@@ -39,7 +40,10 @@ function TaskRow({ task, sprints, onMoveToSprint }) {
 
 function SprintSection({ sprint, tasks, sprints, onMoveToSprint }) {
   const [expanded, setExpanded] = useState(true)
-  const sprintTasks = tasks.filter(t => t.sprint === sprint?._id || (!sprint && !t.sprint))
+  const sprintTasks = tasks.filter((t) => {
+    const taskSprintId = typeof t.sprint === 'object' ? t.sprint?._id : t.sprint
+    return sprint ? String(taskSprintId) === String(sprint._id) : !t.sprint
+  })
 
   return (
     <div className="border border-border rounded-lg overflow-hidden mb-3">
@@ -74,6 +78,7 @@ function SprintSection({ sprint, tasks, sprints, onMoveToSprint }) {
 
 export default function BacklogPage() {
   const { projectId } = useParams()
+  const [createOpen, setCreateOpen] = useState(false)
   const { data: tasksData, loading: tasksLoading, refetch } = useQuery(
     () => tasksApi.list({ project: projectId, limit: 200 }),
     [projectId]
@@ -83,8 +88,8 @@ export default function BacklogPage() {
     [projectId]
   )
 
-  const tasks = tasksData?.tasks || []
-  const sprints = sprintsData?.sprints || []
+  const tasks = tasksData?.data || tasksData?.tasks || []
+  const sprints = sprintsData?.data || sprintsData?.sprints || []
 
   const { mutate: moveToSprint } = useMutation(
     ({ taskId, sprintId }) => tasksApi.update(taskId, { sprint: sprintId }),
@@ -102,7 +107,7 @@ export default function BacklogPage() {
           <h1 className="text-2xl font-bold text-foreground">Backlog</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage and prioritize your project backlog</p>
         </div>
-        <Button size="sm"><Plus className="h-4 w-4 mr-1" />Create Issue</Button>
+        <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1" />Create Issue</Button>
       </div>
 
       {/* Active and future sprints */}
@@ -123,6 +128,15 @@ export default function BacklogPage() {
         sprints={sprints}
         onMoveToSprint={(taskId, sprintId) => moveToSprint({ taskId, sprintId })}
       />
+
+      {createOpen && (
+        <TaskModal
+          isNew
+          projectId={projectId}
+          onClose={() => setCreateOpen(false)}
+          onUpdated={refetch}
+        />
+      )}
     </div>
   )
 }

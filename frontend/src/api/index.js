@@ -187,3 +187,6 @@ export const settingsApi = {
 export const auditApi = {
   getAll: (params) => api.get('/audit', { params }),
 };
+
+// Re-export the Axios client for direct calls from feature modules.
+export { api };

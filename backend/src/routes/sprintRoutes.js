@@ -15,8 +15,26 @@ router.get('/', catchAsync(async (req, res) => {
   const filter = { isDeleted: false };
   if (project) filter.project = project;
   if (status) filter.status = status;
+  
   const sprints = await Sprint.find(filter).populate('createdBy', 'name avatar').sort('-createdAt').limit(parseInt(limit));
-  res.json({ success: true, data: sprints });
+  
+  const sprintsWithStats = await Promise.all(sprints.map(async (sprint) => {
+    const tasks = await Task.find({ sprint: sprint._id, isDeleted: false });
+    const taskCount = tasks.length;
+    const completedTaskCount = tasks.filter(t => t.status === 'completed').length;
+    const totalPoints = tasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0);
+    const completedPoints = tasks.reduce((sum, t) => sum + (t.status === 'completed' ? (t.storyPoints || 0) : 0), 0);
+    
+    return {
+      ...sprint.toObject(),
+      taskCount,
+      completedTaskCount,
+      totalPoints,
+      completedPoints
+    };
+  }));
+
+  res.json({ success: true, data: sprintsWithStats });
 }));
 
 router.post('/', sprintValidator, catchAsync(async (req, res) => {
@@ -35,7 +53,22 @@ router.post('/', sprintValidator, catchAsync(async (req, res) => {
 router.get('/:id', mongoIdValidator(), catchAsync(async (req, res, next) => {
   const sprint = await Sprint.findById(req.params.id).populate('createdBy', 'name avatar');
   if (!sprint) return next(new AppError('Sprint not found', 404));
-  res.json({ success: true, data: sprint });
+  
+  const tasks = await Task.find({ sprint: sprint._id, isDeleted: false });
+  const taskCount = tasks.length;
+  const completedTaskCount = tasks.filter(t => t.status === 'completed').length;
+  const totalPoints = tasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0);
+  const completedPoints = tasks.reduce((sum, t) => sum + (t.status === 'completed' ? (t.storyPoints || 0) : 0), 0);
+
+  const sprintWithStats = {
+    ...sprint.toObject(),
+    taskCount,
+    completedTaskCount,
+    totalPoints,
+    completedPoints
+  };
+
+  res.json({ success: true, data: sprintWithStats });
 }));
 
 router.put('/:id', mongoIdValidator(), catchAsync(async (req, res, next) => {

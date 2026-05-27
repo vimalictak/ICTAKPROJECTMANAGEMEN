@@ -18,6 +18,7 @@ router.patch('/bulk', taskController.bulkUpdateTasks);
 router.route('/:id')
   .get(mongoIdValidator(), taskController.getTask)
   .put(mongoIdValidator(), taskController.updateTask)
+  .patch(mongoIdValidator(), taskController.updateTask)
   .delete(mongoIdValidator(), taskController.deleteTask);
 
 router.patch('/:id/move', mongoIdValidator(), taskController.moveTask);

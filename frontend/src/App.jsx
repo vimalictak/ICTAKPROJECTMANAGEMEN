@@ -14,20 +14,25 @@ const ForgotPasswordPage = lazy(() => import('./features/auth/AuthPages.jsx').th
 const DashboardPage     = lazy(() => import('./features/dashboard/DashboardPage.jsx'))
 const ProjectsPage      = lazy(() => import('./features/projects/ProjectPages.jsx').then(m => ({ default: m.ProjectsPage })))
 const ProjectDetailPage = lazy(() => import('./features/projects/ProjectPages.jsx').then(m => ({ default: m.ProjectDetailPage })))
+const ProjectMembersRoute = lazy(() => import('./features/projects/ProjectPages.jsx').then(m => ({ default: m.ProjectMembersRoute })))
 const KanbanBoard       = lazy(() => import('./features/projects/KanbanBoard.jsx'))
 const BacklogPage       = lazy(() => import('./features/projects/BacklogPage.jsx'))
+const TimelinePage      = lazy(() => import('./features/projects/TimelinePage.jsx'))
 const ProjectSettingsPage = lazy(() => import('./features/projects/ProjectSettingsPage.jsx'))
 const TasksPage         = lazy(() => import('./features/tasks/TaskModal.jsx').then(m => ({ default: m.TasksPage })))
 const SprintsPage       = lazy(() => import('./features/sprints/SprintsPage.jsx').then(m => ({ default: m.SprintsPage })))
 const SprintDetailPage  = lazy(() => import('./features/sprints/SprintsPage.jsx').then(m => ({ default: m.SprintDetailPage })))
-const StoriesPage       = lazy(() => import('./features/notifications/NotificationsPage.jsx').then(m => ({ default: m.StoriesPage })))
+const StoriesPage       = lazy(() => import('./features/stories/StoriesPage.jsx').then(m => ({ default: m.StoriesPage })))
 const NotificationsPage = lazy(() => import('./features/notifications/NotificationsPage.jsx').then(m => ({ default: m.NotificationsPage })))
 const UsersPage         = lazy(() => import('./features/users/UsersPage.jsx'))
 const ReportsPage       = lazy(() => import('./features/reports/ReportsPage.jsx'))
 const CalendarPage      = lazy(() => import('./features/calendar/CalendarPage.jsx'))
 const ProfilePage       = lazy(() => import('./features/profile/ProfilePage.jsx'))
 const SettingsPage      = lazy(() => import('./features/notifications/NotificationsPage.jsx').then(m => ({ default: m.SettingsPage })))
-const FeedbackPage      = lazy(() => import('./features/notifications/NotificationsPage.jsx').then(m => ({ default: m.FeedbackPage })))
+const FeedbackPage      = lazy(() => import('./features/feedback/FeedbackPage.jsx'))
+const FeedbackFormSubmission = lazy(() => import('./features/feedback/FeedbackFormSubmission.jsx'))
+const FeedbackDetailPage = lazy(() => import('./features/feedback/FeedbackDetail.jsx'))
+const FeedbackFormEditor = lazy(() => import('./features/feedback/FeedbackFormEditor.jsx'))
 const ResetPasswordPage = lazy(() => import('./features/auth/AuthPages.jsx').then(m => ({ default: m.ResetPasswordPage })))
 const VerifyEmailPage   = lazy(() => import('./features/auth/AuthPages.jsx').then(m => ({ default: m.VerifyEmailPage })))
 
@@ -103,16 +108,27 @@ export default function App() {
 
         {/* Projects */}
         <Route path="projects" element={<SuspenseWrapper><ProjectsPage /></SuspenseWrapper>} />
-        <Route path="projects/:projectId" element={<SuspenseWrapper><ProjectDetailPage /></SuspenseWrapper>} />
-        <Route path="projects/:projectId/board" element={<SuspenseWrapper><KanbanBoard /></SuspenseWrapper>} />
-        <Route path="projects/:projectId/backlog" element={<SuspenseWrapper><BacklogPage /></SuspenseWrapper>} />
-        <Route path="projects/:projectId/sprints" element={<SuspenseWrapper><SprintsPage /></SuspenseWrapper>} />
-        <Route path="projects/:projectId/sprints/:sprintId" element={<SuspenseWrapper><SprintDetailPage /></SuspenseWrapper>} />
-        <Route path="projects/:projectId/stories" element={<SuspenseWrapper><StoriesPage /></SuspenseWrapper>} />
-        <Route path="projects/:projectId/settings" element={<SuspenseWrapper><ProjectSettingsPage /></SuspenseWrapper>} />
+        <Route path="projects/:projectId" element={<SuspenseWrapper><ProjectDetailPage /></SuspenseWrapper>}>
+          <Route index element={<Navigate to="board" replace />} />
+          <Route path="board" element={<SuspenseWrapper><KanbanBoard /></SuspenseWrapper>} />
+          <Route path="backlog" element={<SuspenseWrapper><BacklogPage /></SuspenseWrapper>} />
+          <Route path="timeline" element={<SuspenseWrapper><TimelinePage /></SuspenseWrapper>} />
+          <Route path="sprints" element={<SuspenseWrapper><SprintsPage /></SuspenseWrapper>} />
+          <Route path="sprints/:id" element={<SuspenseWrapper><SprintDetailPage /></SuspenseWrapper>} />
+          <Route path="stories" element={<SuspenseWrapper><StoriesPage /></SuspenseWrapper>} />
+          <Route path="members" element={<SuspenseWrapper><ProjectMembersRoute /></SuspenseWrapper>} />
+          <Route path="settings" element={<SuspenseWrapper><ProjectSettingsPage /></SuspenseWrapper>} />
+        </Route>
 
         {/* Tasks */}
         <Route path="tasks" element={<SuspenseWrapper><TasksPage /></SuspenseWrapper>} />
+
+        {/* Sprints */}
+        <Route path="sprints" element={<SuspenseWrapper><SprintsPage /></SuspenseWrapper>} />
+        <Route path="sprints/:id" element={<SuspenseWrapper><SprintDetailPage /></SuspenseWrapper>} />
+
+        {/* Stories (global) */}
+        <Route path="stories" element={<SuspenseWrapper><StoriesPage /></SuspenseWrapper>} />
 
         {/* Calendar */}
         <Route path="calendar" element={<SuspenseWrapper><CalendarPage /></SuspenseWrapper>} />
@@ -128,6 +144,9 @@ export default function App() {
 
         {/* Feedback */}
         <Route path="feedback" element={<SuspenseWrapper><FeedbackPage /></SuspenseWrapper>} />
+        <Route path="feedback/:feedbackId" element={<SuspenseWrapper><FeedbackDetailPage /></SuspenseWrapper>} />
+        <Route path="feedback/form/:formId" element={<SuspenseWrapper><FeedbackFormSubmission /></SuspenseWrapper>} />
+        <Route path="feedback/form/:formId/edit" element={<SuspenseWrapper><FeedbackFormEditor /></SuspenseWrapper>} />
 
         {/* Profile & Settings */}
         <Route path="profile" element={<SuspenseWrapper><ProfilePage /></SuspenseWrapper>} />

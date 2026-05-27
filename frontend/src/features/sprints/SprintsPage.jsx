@@ -93,9 +93,10 @@ export const SprintsPage = () => {
   const [statusFilter, setStatusFilter] = useState('');
 
   const { data, loading, refetch } = useQuery(() => sprintsApi.getAll({ status: statusFilter }), [statusFilter]);
-  const sprints = data?.sprints || [];
+  const sprints = data?.data || [];
 
-  const { data: projects } = useQuery(() => projectsApi.getAll({ limit: 50 }), []);
+  const { data: projectsData } = useQuery(() => projectsApi.getAll({ limit: 50 }), []);
+  const projects = projectsData?.data || [];
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm({ resolver: zodResolver(sprintSchema) });
 
@@ -169,7 +170,7 @@ export const SprintsPage = () => {
           <FormField label="Project" error={errors.project?.message} required>
             <Select {...register('project')}>
               <option value="">Select project...</option>
-              {projects?.projects?.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+              {projects?.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
             </Select>
           </FormField>
           <FormField label="Sprint Goal">
@@ -200,7 +201,7 @@ export const SprintDetailPage = () => {
   const { id } = useParams();
   const { data, loading } = useQuery(() => sprintsApi.getOne(id), [id]);
   const { data: burndownData } = useQuery(() => sprintsApi.getBurndown(id), [id]);
-  const sprint = data?.sprint;
+  const sprint = data?.data;
 
   if (loading) return <div className="p-6"><Skeleton className="h-32 w-full mb-4" /><Skeleton className="h-64 w-full" /></div>;
   if (!sprint) return <div className="p-6 text-center text-muted-foreground">Sprint not found</div>;

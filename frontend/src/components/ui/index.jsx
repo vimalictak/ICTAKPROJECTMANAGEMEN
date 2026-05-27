@@ -272,10 +272,15 @@ export const TabsBar = ({ tabs, activeTab, onChange, className }) => (
 );
 
 // ─── Tooltip ───────────────────────────────────────────
-export const Tooltip = ({ content, children, side = 'top' }) => {
+export const Tooltip = ({ content, children, side = 'top', className, style }) => {
   const [show, setShow] = React.useState(false);
   return (
-    <div className="relative inline-flex" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+    <div 
+      className={cn("relative inline-flex", className)} 
+      style={style}
+      onMouseEnter={() => setShow(true)} 
+      onMouseLeave={() => setShow(false)}
+    >
       {children}
       {show && content && (
         <div className={cn(
@@ -355,15 +360,15 @@ export const Modal = ({ open, onClose, title, description, children, size = 'def
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className={cn(
-        'relative z-50 w-full rounded-xl border bg-background shadow-2xl animate-fade-in',
+        'relative z-50 w-full rounded-xl border bg-background shadow-2xl animate-fade-in flex flex-col max-h-[90vh]',
         sizes[size],
         className
       )}>
         {(title || description) && (
-          <div className="flex items-start justify-between p-6 pb-4">
+          <div className="flex items-start justify-between p-6 pb-4 shrink-0">
             <div>
               {title && <h2 className="text-lg font-semibold">{title}</h2>}
               {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
@@ -373,7 +378,7 @@ export const Modal = ({ open, onClose, title, description, children, size = 'def
             </button>
           </div>
         )}
-        <div className={cn('px-6 pb-6', !title && !description && 'pt-6')}>{children}</div>
+        <div className={cn('px-6 pb-6 overflow-y-auto flex-1', !title && !description && 'pt-6')}>{children}</div>
       </div>
     </div>
   );
@@ -509,10 +514,13 @@ export function TabsContent({ value, className, children }) {
 export { TabsRoot as TabsCompound }
 
 // Unified <Tabs value onValueChange> compound root (replaces prop-based Tabs for new pages)
-export function Tabs({ value, onValueChange, className, children }) {
+export function Tabs({ value, onValueChange, className, children, ...props }) {
+  if (props.tabs) {
+    return <TabsBar tabs={props.tabs} activeTab={props.activeTab} onChange={props.onChange} className={className} />;
+  }
   return (
     <TabsContext.Provider value={{ value, onValueChange }}>
       <div className={className}>{children}</div>
     </TabsContext.Provider>
-  )
+  );
 }

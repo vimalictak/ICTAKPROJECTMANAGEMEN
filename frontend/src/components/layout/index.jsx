@@ -59,7 +59,7 @@ export const Sidebar = () => {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+      <nav className="flex flex-col flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         {navItems.map((item, i) => {
           if (item.separator) return <div key={i} className="my-2 h-px bg-border mx-2" />;
           if (item.adminOnly && !canAdmin) return null;
@@ -70,7 +70,7 @@ export const Sidebar = () => {
               <Link
                 to={item.to}
                 className={cn(
-                  'flex items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-colors',
+                  'flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-colors',
                   collapsed ? 'justify-center' : '',
                   active
                     ? 'bg-primary/10 text-primary'

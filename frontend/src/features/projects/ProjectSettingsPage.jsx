@@ -26,7 +26,8 @@ export default function ProjectSettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [activeTab, setActiveTab] = useState('general')
 
-  const { data: project, loading } = useQuery(() => projectsApi.get(projectId), [projectId])
+  const { data: projectData, loading } = useQuery(() => projectsApi.get(projectId), [projectId])
+  const project = projectData?.data
 
   const form = useForm({
     resolver: zodResolver(projectSchema),

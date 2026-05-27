@@ -27,11 +27,18 @@ const processQueue = (error, token = null) => {
 };
 
 // Response interceptor — handle 401 and refresh token
+// Skip refresh for auth endpoints to avoid infinite loops
+const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/refresh-token', '/auth/me', '/auth/forgot-password'];
+
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
+    const requestUrl = original?.url || '';
+
+    // Don't attempt token refresh for auth endpoints or already-retried requests
+    const isAuthEndpoint = AUTH_ENDPOINTS.some((ep) => requestUrl.includes(ep));
+    if (error.response?.status === 401 && !original._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -60,7 +67,7 @@ api.interceptors.response.use(
       } catch (err) {
         processQueue(err, null);
         localStorage.removeItem('accessToken');
-        window.location.href = '/login';
+        // Let Redux auth state + React Router handle the redirect — no hard page reload
         return Promise.reject(err);
       } finally {
         isRefreshing = false;

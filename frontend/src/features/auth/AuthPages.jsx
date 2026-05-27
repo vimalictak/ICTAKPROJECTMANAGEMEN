@@ -22,8 +22,12 @@ export const LoginPage = () => {
   const { loading, error, isAuthenticated } = useSelector(selectAuth);
   const [showPw, setShowPw] = React.useState(false);
 
-  useEffect(() => { if (isAuthenticated) navigate('/dashboard'); }, [isAuthenticated]);
-  useEffect(() => { if (error) toast.error(error); dispatch(clearError()); }, [error]);
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
 
   const { register, handleSubmit, formState: { errors } } = useForm({ resolver: zodResolver(loginSchema) });
 

@@ -336,6 +336,98 @@ const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * FeedbackForm Model (Dynamic Form Builder)
+ */
+
+const feedbackFormSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 500,
+    },
+    description: { type: String, maxlength: 2000 },
+    project: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Project',
+      required: true,
+    },
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      required: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+
+    // Form fields
+    fields: [
+      {
+        id: { type: String, required: true }, // unique field id
+        label: { type: String, required: true },
+        type: {
+          type: String,
+          enum: ['text', 'textarea', 'select', 'radio', 'checkbox', 'email', 'rating', 'file'],
+          required: true,
+        },
+        required: { type: Boolean, default: false },
+        placeholder: String,
+        helpText: String,
+        options: [
+          {
+            label: String,
+            value: String,
+          },
+        ],
+        order: Number, // Field order
+      },
+    ],
+
+    // Form settings
+    categories: {
+      type: [String],
+      enum: ['ui_ux', 'bug', 'suggestion', 'other'],
+      default: ['bug', 'suggestion', 'ui_ux', 'other'],
+    },
+
+    status: {
+      type: String,
+      enum: ['draft', 'published', 'archived'],
+      default: 'draft',
+    },
+
+    publishedAt: Date,
+    publishedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+    // Response tracking
+    totalResponses: { type: Number, default: 0 },
+    responseClosed: { type: Boolean, default: false },
+    responseClosedAt: Date,
+
+    // Settings
+    allowTaskResponse: { type: Boolean, default: true }, // Allow responders to link to tasks
+    collectEmail: { type: Boolean, default: true },
+    collectName: { type: Boolean, default: true },
+    showProgressBar: { type: Boolean, default: true },
+
+    isDeleted: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
+feedbackFormSchema.index({ project: 1, status: 1 });
+feedbackFormSchema.index({ organization: 1 });
+feedbackFormSchema.index({ createdBy: 1 });
+
+const FeedbackForm = mongoose.model('FeedbackForm', feedbackFormSchema);
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
  * Feedback Model (Client Feedback System)
  */
 
@@ -356,8 +448,10 @@ const feedbackSchema = new mongoose.Schema(
     submittedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
     },
+    submitterEmail: { type: String, trim: true },
+    submitterName: { type: String, trim: true },
+
     priority: {
       type: String,
       enum: ['critical', 'high', 'medium', 'low'],
@@ -370,7 +464,7 @@ const feedbackSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ['bug', 'feature_request', 'improvement', 'question', 'other'],
+      enum: ['ui_ux', 'bug', 'suggestion', 'other'],
       default: 'other',
     },
     attachments: [
@@ -391,13 +485,21 @@ const feedbackSchema = new mongoose.Schema(
     convertedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
     // Form-based submission
-    formId: String,
+    formId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'FeedbackForm',
+    },
     customFields: [
       {
+        fieldId: String,
         label: String,
         value: mongoose.Schema.Types.Mixed,
       },
     ],
+
+    // Response to task (if responder has option)
+    respondToTask: { type: mongoose.Schema.Types.ObjectId, ref: 'Task' },
+    respondToTaskTitle: String,
 
     isDeleted: { type: Boolean, default: false },
   },
@@ -407,7 +509,8 @@ const feedbackSchema = new mongoose.Schema(
 feedbackSchema.index({ project: 1, status: 1 });
 feedbackSchema.index({ submittedBy: 1 });
 feedbackSchema.index({ organization: 1 });
+feedbackSchema.index({ formId: 1 });
 
 const Feedback = mongoose.model('Feedback', feedbackSchema);
 
-module.exports = { Sprint, Story, Comment, Notification, AuditLog, Feedback };
+module.exports = { Sprint, Story, Comment, Notification, AuditLog, Feedback, FeedbackForm };

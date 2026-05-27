@@ -82,7 +82,7 @@ export default function CalendarPage() {
     }),
     [currentDate],
   )
-  const tasks = data?.tasks || []
+  const tasks = data?.data || data?.tasks || []
 
   const weekDays = eachDayOfInterval({
     start: startOfWeek(currentDate),

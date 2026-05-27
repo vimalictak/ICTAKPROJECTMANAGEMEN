@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,7 +11,7 @@ import {
   Checkbox, Progress, Separator, Skeleton, Tabs, Spinner
 } from '../../components/ui/index';
 import { useQuery, useMutation } from '../../hooks/useQuery';
-import { tasksApi, commentsApi, projectsApi, usersApi } from '../../api';
+import { tasksApi, commentsApi, projectsApi, usersApi, sprintsApi } from '../../api';
 import { statusColor, priorityColor, formatRelativeTime, formatDate, cn } from '../../lib/utils';
 import { useSelector } from 'react-redux';
 import { selectUser } from '../auth/authSlice';
@@ -22,21 +22,28 @@ const taskSchema = z.object({
   status: z.string().default('todo'),
   priority: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
   estimatedHours: z.number().optional(),
+  startDate: z.string().optional(),
   dueDate: z.string().optional(),
   storyPoints: z.number().optional(),
   project: z.string().optional(),
+  sprint: z.string().optional(),
 });
 
 // ─── Comments Section ───────────────────────────────────
-const CommentsSection = ({ taskId }) => {
+const CommentsSection = ({ taskId, onUpdated }) => {
   const currentUser = useSelector(selectUser);
   const [text, setText] = useState('');
   const { data, refetch } = useQuery(() => commentsApi.getAll({ task: taskId }), [taskId]);
-  const comments = data?.comments || [];
+  const comments = data?.data || data || [];
 
   const { mutate: addComment, loading } = useMutation(
     (content) => commentsApi.create({ task: taskId, content }),
-    { onSuccess: () => { setText(''); refetch(); }, onError: (e) => toast.error(e) }
+    { onSuccess: () => { setText(''); refetch(); onUpdated?.(); }, onError: (e) => toast.error(e) }
+  );
+
+  const { mutate: deleteComment, loading: deletingComment } = useMutation(
+    (id) => commentsApi.delete(id),
+    { onSuccess: () => { refetch(); onUpdated?.(); toast.success('Comment deleted'); }, onError: (e) => toast.error(e) }
   );
 
   return (
@@ -62,7 +69,7 @@ const CommentsSection = ({ taskId }) => {
 
       {/* Comments list */}
       {comments.map((c) => (
-        <div key={c._id} className="flex gap-3">
+        <div key={c._id} className="flex gap-3 items-start">
           <Avatar src={c.author?.avatar} name={c.author?.name} size="sm" className="shrink-0 mt-0.5" />
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
@@ -71,6 +78,13 @@ const CommentsSection = ({ taskId }) => {
             </div>
             <p className="text-sm whitespace-pre-wrap">{c.content}</p>
           </div>
+          {currentUser?._id === c.author?._id && (
+            <div className="shrink-0">
+              <Button size="sm" variant="ghost" className="text-destructive" loading={deletingComment} onClick={() => deleteComment(c._id)}>
+                Delete
+              </Button>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -83,7 +97,7 @@ const TimeLogSection = ({ task, onUpdated }) => {
   const [note, setNote] = useState('');
 
   const { mutate: logTime, loading } = useMutation(
-    (data) => tasksApi.logTime(task._id, data),
+    ({ id, hours, note }) => tasksApi.logTime(id, { hours, description: note }),
     { onSuccess: () => { setHours(''); setNote(''); onUpdated?.(); toast.success('Time logged'); }, onError: (e) => toast.error(e) }
   );
 
@@ -109,7 +123,10 @@ const TimeLogSection = ({ task, onUpdated }) => {
           step="0.5"
         />
         <Input placeholder="Note (optional)" value={note} onChange={e => setNote(e.target.value)} className="flex-1" />
-        <Button size="sm" loading={loading} disabled={!hours} onClick={() => logTime({ hours: parseFloat(hours), note })}>
+        <Button size="sm" loading={loading} disabled={!hours || !task?._id} onClick={() => {
+          if (!task?._id) { toast.error('Task id missing'); return; }
+          logTime({ id: task._id, hours: parseFloat(hours), note });
+        }}>
           Log
         </Button>
       </div>
@@ -118,7 +135,7 @@ const TimeLogSection = ({ task, onUpdated }) => {
         <div key={i} className="flex items-center gap-3 text-sm">
           <Avatar src={log.user?.avatar} name={log.user?.name} size="sm" />
           <span className="font-medium">{log.hours}h</span>
-          <span className="text-muted-foreground flex-1 truncate">{log.note || 'No note'}</span>
+          <span className="text-muted-foreground flex-1 truncate">{log.description || log.note || 'No note'}</span>
           <span className="text-xs text-muted-foreground">{formatDate(log.date)}</span>
         </div>
       ))}
@@ -189,19 +206,80 @@ export const TaskModal = ({ task, isNew, defaultStatus, projectId, onClose, onUp
   const [localTask, setLocalTask] = useState(task || null);
   const currentUser = useSelector(selectUser);
 
-  const { data: projects } = useQuery(() => projectsApi.getAll({ limit: 50 }), []);
-  const { data: usersData } = useQuery(() => usersApi.getAll({ limit: 100 }), []);
-  const users = usersData?.users || [];
+  const toInputDateTime = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toISOString().slice(0, 16);
+  };
 
-  const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm({
+  const { data } = useQuery(() => projectsApi.getAll({ limit: 50 }), []);
+  const { data: usersData } = useQuery(() => usersApi.getAll({ limit: 100 }), []);
+  const projects = data?.data || [];
+
+  // watch selected project from form (for new tasks) or use current projectId
+  const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm({
     resolver: zodResolver(taskSchema),
-    defaultValues: task || { status: defaultStatus || 'todo', priority: 'medium', project: projectId },
+    defaultValues: task 
+      ? { 
+          ...task, 
+          startDate: toInputDateTime(task.startDate),
+          dueDate: toInputDateTime(task.dueDate),
+          sprint: task.sprint && typeof task.sprint === 'object' ? task.sprint._id : (task.sprint || ''),
+          project: task.project && typeof task.project === 'object' ? task.project._id : (task.project || projectId)
+        } 
+      : { status: defaultStatus || 'todo', priority: 'medium', project: projectId, sprint: '' },
   });
+
+  const selectedProjectId = watch('project') || projectId || (task?.project && (typeof task.project === 'object' ? task.project._id : task.project)) || (localTask?.project && (typeof localTask.project === 'object' ? localTask.project._id : localTask.project));
+
+  // Load sprints for the selected project
+  const { data: sprintsData } = useQuery(
+    () => selectedProjectId ? sprintsApi.list({ project: selectedProjectId, limit: 100 }) : Promise.resolve({ data: [] }),
+    [selectedProjectId]
+  );
+  const sprints = sprintsData?.data || sprintsData?.sprints || [];
+
+  // Show all available users for assignment (system-wide)
+  // Backend returns { success: true, data: [users...] }
+  const users = usersData?.data || [];
+
+  const [selectedAssignees, setSelectedAssignees] = useState(() => (task?.assignees?.map(a => a._id) || []));
+  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
+  const assigneeRef = useRef(null);
+
+  // Keep selectedAssignees in sync when task prop updates (e.g., opening existing task)
+  useEffect(() => {
+    setSelectedAssignees(task?.assignees?.map(a => a._id) || []);
+  }, [task]);
+
+  useEffect(() => {
+    setValue('assignees', selectedAssignees);
+  }, [selectedAssignees, setValue]);
+
+  // close dropdown on outside click
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (assigneeRef.current && !assigneeRef.current.contains(e.target)) {
+        setShowAssigneeDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  // Keep sprint in sync when sprints or task loads
+  useEffect(() => {
+    if (task && sprints.length > 0) {
+      const sprintId = task.sprint && typeof task.sprint === 'object' ? task.sprint._id : (task.sprint || '');
+      setValue('sprint', sprintId);
+    }
+  }, [sprints, task, setValue]);
 
   const { mutate: createTask, loading: creating } = useMutation(
     (data) => tasksApi.create(data),
     {
-      onSuccess: (d) => { toast.success('Task created!'); onUpdated?.(d.task); onClose(); },
+      onSuccess: (d) => { toast.success('Task created!'); onUpdated?.(d.data || d.task); onClose(); },
       onError: (e) => toast.error(e),
     }
   );
@@ -209,13 +287,38 @@ export const TaskModal = ({ task, isNew, defaultStatus, projectId, onClose, onUp
   const { mutate: updateTask, loading: updating } = useMutation(
     (data) => tasksApi.update(task._id, data),
     {
-      onSuccess: (d) => { setLocalTask(d.task); onUpdated?.(d.task); toast.success('Task updated'); },
+      onSuccess: (d) => { setLocalTask(d.data || d.task); onUpdated?.(d.data || d.task); toast.success('Task updated'); },
       onError: (e) => toast.error(e),
     }
   );
 
+  const refreshTask = async () => {
+    const id = task?._id || localTask?._id;
+    if (!id) return;
+    try {
+      const res = await tasksApi.getOne(id);
+      const t = res.data || res.task || res;
+      setLocalTask(t);
+      // update form inputs to reflect latest values
+      setValue('startDate', toInputDateTime(t.startDate));
+      setValue('dueDate', toInputDateTime(t.dueDate));
+      setValue('title', t.title || '');
+      setValue('description', t.description || '');
+      setValue('assignees', t.assignees?.map(a => a._id) || []);
+    } catch (e) {
+      // ignore
+    }
+  };
+
   const onSubmit = (data) => {
-    const payload = { ...data, estimatedHours: data.estimatedHours ? parseFloat(data.estimatedHours) : undefined };
+    const payload = {
+      ...data,
+      project: projectId || data.project,
+      sprint: data.sprint === "" ? null : data.sprint,
+      estimatedHours: data.estimatedHours ? parseFloat(data.estimatedHours) : undefined
+    };
+    // include assignees selected via the multi-select
+    payload.assignees = selectedAssignees || [];
     if (isNew) createTask(payload);
     else updateTask(payload);
   };
@@ -276,18 +379,71 @@ export const TaskModal = ({ task, isNew, defaultStatus, projectId, onClose, onUp
                     <option value="critical">🔴 Critical</option>
                   </Select>
                 </FormField>
-                {isNew && (
-                  <FormField label="Project">
+                <FormField label="Sprint" error={errors.sprint?.message}>
+                  <Select {...register('sprint')}>
+                    <option value="">No Sprint (Backlog)</option>
+                    {sprints.map(s => (
+                      <option key={s._id} value={s._id}>{s.name} ({s.status})</option>
+                    ))}
+                  </Select>
+                </FormField>
+                <FormField label="Assignees">
+                  <div className="relative" ref={assigneeRef}>
+                    <button type="button" onClick={() => setShowAssigneeDropdown(s => !s)} className="flex items-center gap-2 w-full p-2 border rounded-md text-sm text-left">
+                      <div className="flex -space-x-2 mr-2">
+                        {selectedAssignees.length === 0 ? (
+                          <div className="flex items-center text-sm text-muted-foreground">Unassigned</div>
+                        ) : (
+                          selectedAssignees.slice(0, 4).map(id => {
+                            const u = users.find(x => x._id === id);
+                            if (!u) return null;
+                            return <Avatar key={id} src={u.avatar} name={u.name} size="xs" className="ring-1 ring-background" />;
+                          })
+                        )}
+                      </div>
+                      <div className="flex-1 truncate">
+                        {selectedAssignees.length === 0 ? 'Assign to...' : `${selectedAssignees.length} member${selectedAssignees.length>1?'s':''}`}
+                      </div>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </button>
+
+                    {showAssigneeDropdown && (
+                      <div className="absolute z-40 mt-2 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {users.length === 0 ? (
+                          <div className="p-3 text-sm text-muted-foreground">No members</div>
+                        ) : (
+                          users.map(u => (
+                            <label key={u._id} className="flex items-center gap-3 p-2 hover:bg-gray-50 cursor-pointer">
+                              <input type="checkbox" checked={selectedAssignees.includes(u._id)} onChange={() => {
+                                setSelectedAssignees(prev => prev.includes(u._id) ? prev.filter(id => id !== u._id) : [...prev, u._id]);
+                              }} className="form-checkbox h-4 w-4" />
+                              <Avatar src={u.avatar} name={u.name} size="sm" />
+                              <div className="flex-1 text-sm">
+                                <div className="font-medium">{u.name}</div>
+                                <div className="text-xs text-muted-foreground">{u.email}</div>
+                              </div>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </FormField>
+                {isNew && !projectId && (
+                  <FormField label="Project" error={errors.project?.message}>
                     <Select {...register('project')}>
                       <option value="">Select project...</option>
-                      {projects?.projects?.map(p => (
+                      {projects?.map(p => (
                         <option key={p._id} value={p._id}>{p.name}</option>
                       ))}
                     </Select>
                   </FormField>
                 )}
+                <FormField label="Start Date">
+                  <Input type="datetime-local" {...register('startDate')} />
+                </FormField>
                 <FormField label="Due Date">
-                  <Input type="date" {...register('dueDate')} />
+                  <Input type="datetime-local" {...register('dueDate')} />
                 </FormField>
                 <FormField label="Estimated Hours">
                   <Input type="number" min="0" step="0.5" placeholder="0" {...register('estimatedHours', { valueAsNumber: true })} />
@@ -301,13 +457,13 @@ export const TaskModal = ({ task, isNew, defaultStatus, projectId, onClose, onUp
         </form>
 
         {!isNew && activeTab === 'checklist' && localTask && (
-          <ChecklistSection task={localTask} onUpdated={() => {}} />
+          <ChecklistSection task={localTask} onUpdated={refreshTask} />
         )}
         {!isNew && activeTab === 'comments' && localTask && (
-          <CommentsSection taskId={localTask._id} />
+          <CommentsSection taskId={localTask._id} onUpdated={refreshTask} />
         )}
         {!isNew && activeTab === 'time' && localTask && (
-          <TimeLogSection task={localTask} onUpdated={() => {}} />
+          <TimeLogSection task={localTask} onUpdated={refreshTask} />
         )}
 
         {/* Footer */}
@@ -336,7 +492,7 @@ export const TasksPage = () => {
     () => tasksApi.getAll({ ...filters, page, limit: 20 }),
     [JSON.stringify(filters), page]
   );
-  const tasks = data?.tasks || [];
+  const tasks = data?.data || data?.tasks || [];
 
   const columns = [
     { key: 'taskKey', label: 'Key', className: 'w-24', render: (v) => <span className="text-xs font-mono text-muted-foreground">{v}</span> },
@@ -373,7 +529,7 @@ export const TasksPage = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Tasks</h1>
-          <p className="text-sm text-muted-foreground mt-1">{data?.total || 0} tasks total</p>
+          <p className="text-sm text-muted-foreground mt-1">{data?.pagination?.total || data?.total || 0} tasks total</p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="gap-2">
           <Plus className="h-4 w-4" /> New Task
